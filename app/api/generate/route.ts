@@ -195,6 +195,31 @@ export async function POST(request: NextRequest) {
         const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '') : topic;
         const wordCount = result.text.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length;
 
+        // Auto-generate meta title (truncate to 60 chars)
+        let metaTitle = title;
+        if (primaryKeyword && !metaTitle.toLowerCase().includes(primaryKeyword.toLowerCase())) {
+          metaTitle = `${title} — ${primaryKeyword.charAt(0).toUpperCase() + primaryKeyword.slice(1)}`;
+        }
+        if (metaTitle.length > 60) {
+          metaTitle = metaTitle.slice(0, 57) + '...';
+        }
+
+        // Auto-generate meta description from first paragraph
+        let metaDescription = '';
+        const pMatch = result.text.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+        if (pMatch) {
+          metaDescription = pMatch[1].replace(/<[^>]*>/g, '').trim();
+        }
+        if (!metaDescription) {
+          metaDescription = result.text.replace(/<[^>]*>/g, ' ').trim().slice(0, 300);
+        }
+        if (primaryKeyword && !metaDescription.toLowerCase().includes(primaryKeyword.toLowerCase())) {
+          metaDescription = `${primaryKeyword.charAt(0).toUpperCase() + primaryKeyword.slice(1)}: ${metaDescription}`;
+        }
+        if (metaDescription.length > 155) {
+          metaDescription = metaDescription.slice(0, 152).trimEnd() + '...';
+        }
+
         const { data: article } = await supabase
           .from('articles')
           .insert({
@@ -211,6 +236,8 @@ export async function POST(request: NextRequest) {
             prompt_snapshot: JSON.stringify({ systemPrompt, userPrompt }),
             status: 'draft',
             created_by: user.id,
+            meta_title: metaTitle,
+            meta_description: metaDescription,
           })
           .select('id')
           .single();

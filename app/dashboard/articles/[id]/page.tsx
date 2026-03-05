@@ -55,6 +55,8 @@ export default function ArticleDetailPage() {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [editedHtml, setEditedHtml] = useState<string | null>(null);
+  const [metaTitle, setMetaTitle] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -103,33 +105,50 @@ export default function ArticleDetailPage() {
         .eq("organization_id", membership.organization_id)
         .single();
 
-      setArticle(data as unknown as ArticleDetail);
+      const art = data as unknown as ArticleDetail;
+      setArticle(art);
+      setMetaTitle(art?.meta_title || "");
+      setMetaDescription(art?.meta_description || "");
       setLoading(false);
     }
     load();
   }, [articleId]);
 
+  const hasChanges =
+    (editedHtml !== null && editedHtml !== article?.body) ||
+    metaTitle !== (article?.meta_title || "") ||
+    metaDescription !== (article?.meta_description || "");
+
   const handleSave = useCallback(async () => {
-    if (!article || editedHtml === null) return;
+    if (!article) return;
     setSaving(true);
     const supabase = createClient();
 
-    const wordCount = editedHtml.replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length;
+    const html = editedHtml ?? article.body ?? "";
+    const wordCount = html.replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length;
 
     await supabase
       .from("articles")
       .update({
-        body: editedHtml,
+        body: html,
         word_count: wordCount,
+        meta_title: metaTitle || null,
+        meta_description: metaDescription || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", article.id);
 
-    setArticle((prev) => prev ? { ...prev, body: editedHtml, word_count: wordCount } : prev);
+    setArticle((prev) => prev ? {
+      ...prev,
+      body: html,
+      word_count: wordCount,
+      meta_title: metaTitle || null,
+      meta_description: metaDescription || null,
+    } : prev);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [article, editedHtml]);
+  }, [article, editedHtml, metaTitle, metaDescription]);
 
   const handleDelete = useCallback(async () => {
     if (!article) return;
@@ -247,7 +266,6 @@ export default function ArticleDetailPage() {
   }
 
   const sc = STATUS_CONFIG[article.status] || STATUS_CONFIG.draft;
-  const hasChanges = editedHtml !== null && editedHtml !== article.body;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -436,6 +454,78 @@ export default function ArticleDetailPage() {
         )}
       </div>
 
+      {/* Meta fields */}
+      <div
+        className="rounded-xl p-5 mb-4 space-y-4"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      >
+        <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+          Meta Tags
+        </h3>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+              Meta Title
+            </label>
+            <span
+              className="text-[10px] tabular-nums"
+              style={{
+                color: metaTitle.length > 60
+                  ? "var(--danger)"
+                  : metaTitle.length >= 50
+                  ? "var(--success)"
+                  : "var(--text-muted)",
+              }}
+            >
+              {metaTitle.length}/60
+            </span>
+          </div>
+          <input
+            type="text"
+            value={metaTitle}
+            onChange={(e) => setMetaTitle(e.target.value)}
+            placeholder="SEO-optimized page title (50-60 characters ideal)"
+            className="w-full rounded-lg px-3 py-2 text-sm"
+            style={{
+              border: `1px solid ${!metaTitle ? "var(--danger)" : "var(--border)"}`,
+              background: "var(--background)",
+              color: "var(--foreground)",
+            }}
+          />
+        </div>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+              Meta Description
+            </label>
+            <span
+              className="text-[10px] tabular-nums"
+              style={{
+                color: metaDescription.length > 160
+                  ? "var(--danger)"
+                  : metaDescription.length >= 120
+                  ? "var(--success)"
+                  : "var(--text-muted)",
+              }}
+            >
+              {metaDescription.length}/160
+            </span>
+          </div>
+          <textarea
+            value={metaDescription}
+            onChange={(e) => setMetaDescription(e.target.value)}
+            placeholder="Compelling description for search results (120-160 characters ideal)"
+            rows={2}
+            className="w-full rounded-lg px-3 py-2 text-sm resize-none"
+            style={{
+              border: `1px solid ${!metaDescription ? "var(--danger)" : "var(--border)"}`,
+              background: "var(--background)",
+              color: "var(--foreground)",
+            }}
+          />
+        </div>
+      </div>
+
       {/* Editor */}
       <ArticleEditor
         content={article.body || ""}
@@ -449,12 +539,16 @@ export default function ArticleDetailPage() {
         <SeoCheckPanel
           articleId={article.id}
           html={editedHtml ?? article.body ?? ""}
-          metaTitle={article.meta_title ?? undefined}
-          metaDescription={article.meta_description ?? undefined}
+          metaTitle={metaTitle || undefined}
+          metaDescription={metaDescription || undefined}
           primaryKeyword={article.primary_keyword ?? undefined}
           secondaryKeywords={article.secondary_keywords ?? undefined}
           targetWordCount={article.word_count || 1500}
           onFixApplied={(fixedHtml) => setEditedHtml(fixedHtml)}
+          onMetaChange={(title, desc) => {
+            setMetaTitle(title);
+            setMetaDescription(desc);
+          }}
         />
       </div>
     </div>

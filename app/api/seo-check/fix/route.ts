@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-// Import fix functions — these will be created by the SEO engine agent
-// Using dynamic import to avoid build errors if the file doesn't exist yet
-async function loadFixes() {
-  try {
-    return await import("@/lib/seo/fixes");
-  } catch {
-    return null;
-  }
-}
+import {
+  addKeywordToMetaTitle,
+  addKeywordToMetaDescription,
+  addKeywordToFirstH2,
+  addAltTextToImages,
+  generateMetaDescription,
+} from "@/lib/seo/fixes";
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,36 +23,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "checkId and html are required" }, { status: 400 });
     }
 
-    const fixes = await loadFixes();
-    if (!fixes) {
-      return NextResponse.json({ error: "Fix module not available" }, { status: 500 });
-    }
-
     let fixedHtml = html;
-    let fixedMetaTitle = metaTitle;
-    let fixedMetaDescription = metaDescription;
+    let fixedMetaTitle = metaTitle || "";
+    let fixedMetaDescription = metaDescription || "";
 
     switch (checkId) {
+      // Heading fixes
       case "keyword-in-h2":
-        fixedHtml = fixes.addKeywordToFirstH2(html, primaryKeyword);
+        fixedHtml = addKeywordToFirstH2(html, primaryKeyword);
         break;
+
+      // Meta title fixes
       case "meta-title-keyword":
-        fixedMetaTitle = fixes.addKeywordToMetaTitle(metaTitle || "", primaryKeyword);
+        fixedMetaTitle = addKeywordToMetaTitle(metaTitle || "", primaryKeyword);
         break;
-      case "meta-description-keyword":
-        fixedMetaDescription = fixes.addKeywordToMetaDescription(
+      case "meta-title-length":
+        // If title is missing entirely, generate from article
+        if (!metaTitle) {
+          const titleMatch = html.match(/<h2[^>]*>(.*?)<\/h2>/i);
+          const titleText = titleMatch
+            ? titleMatch[1].replace(/<[^>]*>/g, "")
+            : primaryKeyword;
+          fixedMetaTitle = addKeywordToMetaTitle(titleText, primaryKeyword);
+        }
+        break;
+
+      // Meta description fixes
+      case "meta-desc-keyword":
+        fixedMetaDescription = addKeywordToMetaDescription(
           metaDescription || "",
           primaryKeyword
         );
         break;
+      case "meta-desc-length":
+        // If description is missing entirely, generate from content
+        if (!metaDescription) {
+          fixedMetaDescription = generateMetaDescription(html, primaryKeyword, 155);
+        }
+        break;
+
+      // Image fixes
       case "image-alt-text":
-        fixedHtml = fixes.addAltTextToImages(html, primaryKeyword);
+      case "image-alt-keyword":
+        fixedHtml = addAltTextToImages(html, primaryKeyword);
         break;
-      case "meta-description-missing":
-        fixedMetaDescription = fixes.generateMetaDescription(html, primaryKeyword, 155);
-        break;
+
       default:
-        return NextResponse.json({ error: "Unknown fix type" }, { status: 400 });
+        return NextResponse.json({ error: `Unknown fix type: ${checkId}` }, { status: 400 });
     }
 
     return NextResponse.json({
