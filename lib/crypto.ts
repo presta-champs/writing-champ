@@ -6,7 +6,14 @@ const TAG_LENGTH = 16;
 const SALT = "writingchamps_api_keys_v1";
 
 function getKey(): Buffer {
-  const secret = process.env.ENCRYPTION_SECRET || process.env.JWT_SECRET || "default_dev_secret";
+  const secret = process.env.ENCRYPTION_SECRET;
+  if (!secret) {
+    throw new Error(
+      "ENCRYPTION_SECRET environment variable is not set. " +
+      "API key encryption/decryption requires this variable. " +
+      "Set it to a cryptographically random string of at least 32 characters."
+    );
+  }
   return scryptSync(secret, SALT, 32);
 }
 

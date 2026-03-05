@@ -81,6 +81,20 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Persona not found' }, { status: 404 });
     }
 
+    // Fetch content index for internal linking
+    const { data: contentIndexRaw } = await supabase
+      .from('website_content_index')
+      .select('id, post_title, post_url, post_excerpt')
+      .eq('website_id', websiteId)
+      .limit(30);
+
+    const contentIndex = (contentIndexRaw ?? []).map((entry: { id: string; post_title: string; post_url: string; post_excerpt: string | null }) => ({
+      id: entry.id,
+      post_title: entry.post_title,
+      post_url: entry.post_url,
+      post_excerpt: entry.post_excerpt ?? undefined,
+    }));
+
     // Assemble prompt
     const { systemPrompt, userPrompt } = assemblePrompt({
       website: {
@@ -122,7 +136,10 @@ export async function POST(request: NextRequest) {
         seo_keyword_density: persona.seo_keyword_density,
         seo_include_faq: persona.seo_include_faq,
         seo_include_toc: persona.seo_include_toc,
+        seo_internal_linking: persona.seo_internal_links,
+        seo_external_linking: persona.seo_outbound_links,
       },
+      contentIndex,
       brief: {
         topic,
         format,

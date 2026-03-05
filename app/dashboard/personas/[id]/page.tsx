@@ -3,6 +3,8 @@ import { useOrganization } from "@/lib/hooks/use-organization";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PersonaVoiceForm } from "@/components/personas/voice-form";
+import { SeoSettings } from "@/components/personas/seo-settings";
+import { PersonaTabs } from "@/components/personas/persona-tabs";
 import { WritingSamples } from "@/components/personas/writing-samples";
 import { WebsiteAssignments } from "@/components/personas/website-assignments";
 
@@ -56,7 +58,10 @@ export default async function PersonaDetailPage({ params }: { params: Promise<{ 
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
-                    <PersonaVoiceForm persona={persona} />
+                    <PersonaTabs
+                        voiceContent={<PersonaVoiceForm persona={persona} />}
+                        seoContent={<SeoSettings persona={persona} />}
+                    />
                 </div>
 
                 <div className="space-y-6">

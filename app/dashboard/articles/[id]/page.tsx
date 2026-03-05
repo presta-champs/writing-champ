@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { ArticleEditor } from "@/components/editor/article-editor";
 import { htmlToMarkdown } from "@/lib/export/html-to-markdown";
+import { SeoCheckPanel } from "@/components/pipeline/seo-check-panel";
 
 type ArticleDetail = {
   id: string;
@@ -442,6 +443,20 @@ export default function ArticleDetailPage() {
         editable={true}
         streaming={false}
       />
+
+      {/* SEO Audit */}
+      <div className="mt-6">
+        <SeoCheckPanel
+          articleId={article.id}
+          html={editedHtml ?? article.body ?? ""}
+          metaTitle={article.meta_title ?? undefined}
+          metaDescription={article.meta_description ?? undefined}
+          primaryKeyword={article.primary_keyword ?? undefined}
+          secondaryKeywords={article.secondary_keywords ?? undefined}
+          targetWordCount={article.word_count || 1500}
+          onFixApplied={(fixedHtml) => setEditedHtml(fixedHtml)}
+        />
+      </div>
     </div>
   );
 }

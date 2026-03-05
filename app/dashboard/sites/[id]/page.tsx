@@ -3,6 +3,7 @@ import { useOrganization } from "@/lib/hooks/use-organization";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { BrandVoiceForm } from "@/components/sites/brand-voice-form";
+import { ContentIndex } from "@/components/sites/content-index";
 
 export default async function SiteDetailPage({ params }: { params: { id: string } }) {
     const org = await useOrganization();
@@ -49,6 +50,11 @@ export default async function SiteDetailPage({ params }: { params: { id: string 
 
             {/* Brand Voice Editor */}
             <BrandVoiceForm site={site} />
+
+            {/* Content Index for Internal Linking */}
+            <div className="mt-8">
+                <ContentIndex websiteId={site.id} />
+            </div>
         </div>
     )
 }

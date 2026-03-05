@@ -70,6 +70,16 @@ export type PromptInput = {
     seo_keyword_density?: number;
     seo_include_faq?: boolean;
     seo_include_toc?: boolean;
+    seo_internal_linking?: number;
+    seo_external_linking?: number;
   };
   brief: ArticleBrief;
+  contentIndex?: ContentIndexEntry[];
+};
+
+export type ContentIndexEntry = {
+  id: string;
+  post_title: string;
+  post_url: string;
+  post_excerpt?: string;
 };

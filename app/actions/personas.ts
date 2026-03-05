@@ -100,6 +100,37 @@ export async function updatePersonaVoice(id: string, formData: FormData) {
 }
 
 
+export async function updatePersonaSeo(id: string, formData: FormData) {
+    const org = await useOrganization();
+    if (!org) throw new Error("Unauthorized");
+
+    const supabase = await createClient();
+
+    const { error } = await supabase
+        .from("personas")
+        .update({
+            seo_internal_links: parseInt(formData.get("seo_internal_links") as string) || 3,
+            seo_outbound_links: parseInt(formData.get("seo_outbound_links") as string) || 3,
+            seo_keyword_density: parseFloat(formData.get("seo_keyword_density") as string) || 1.5,
+            seo_heading_depth: parseInt(formData.get("seo_heading_depth") as string) || 3,
+            seo_include_faq: formData.get("seo_include_faq") === "on",
+            seo_include_toc: formData.get("seo_include_toc") === "on",
+            seo_title_tag_format: formData.get("seo_title_tag_format") as string || null,
+            seo_meta_description_length: parseInt(formData.get("seo_meta_description_length") as string) || 155,
+            seo_article_length_min: parseInt(formData.get("seo_article_length_min") as string) || 1500,
+            seo_article_length_max: parseInt(formData.get("seo_article_length_max") as string) || 3000,
+        })
+        .eq("id", id)
+        .eq("organization_id", org.id);
+
+    if (error) {
+        console.error(error);
+        throw new Error("Failed to update SEO settings");
+    }
+
+    revalidatePath(`/dashboard/personas/${id}`);
+}
+
 export async function analyzePersonaVoice(personaId: string) {
     const org = await useOrganization();
     if (!org) throw new Error("Unauthorized");
@@ -164,7 +195,7 @@ export async function analyzePersonaVoice(personaId: string) {
     const { analyzeVoice } = await import("@/lib/persona/voice-analysis");
     const { analysis, generation } = await analyzeVoice(sampleTexts, providerKeys);
 
-    // Save all rich voice fields to persona
+    // Save all rich voice fields to persona (org-scoped for safety)
     await supabase
         .from("personas")
         .update({
@@ -178,7 +209,8 @@ export async function analyzePersonaVoice(personaId: string) {
             tone_conciseness: analysis.tone_conciseness,
             tone_humor: analysis.tone_humor,
         })
-        .eq("id", personaId);
+        .eq("id", personaId)
+        .eq("organization_id", org.id);
 
     // Log usage
     const { logUsageEvent } = await import("@/lib/usage");
@@ -212,11 +244,12 @@ export async function installBuiltinPersonas() {
             .single();
 
         if (existing) {
-            // Update badges and other fields for already-installed personas
+            // Update badges and other fields for already-installed personas (org-scoped)
             await supabase
                 .from("personas")
                 .update({ badges: (persona as any).badges || [] })
-                .eq("id", existing.id);
+                .eq("id", existing.id)
+                .eq("organization_id", org.id);
             continue;
         }
 
@@ -244,6 +277,24 @@ export async function assignPersonaToWebsite(personaId: string, websiteId: strin
 
     const supabase = await createClient();
 
+    // Verify persona belongs to this org
+    const { data: persona } = await supabase
+        .from("personas")
+        .select("id")
+        .eq("id", personaId)
+        .eq("organization_id", org.id)
+        .single();
+    if (!persona) throw new Error("Persona not found or does not belong to your organization");
+
+    // Verify website belongs to this org
+    const { data: website } = await supabase
+        .from("websites")
+        .select("id")
+        .eq("id", websiteId)
+        .eq("organization_id", org.id)
+        .single();
+    if (!website) throw new Error("Website not found or does not belong to your organization");
+
     await supabase
         .from("persona_website_assignments")
         .upsert(
@@ -259,6 +310,15 @@ export async function removePersonaFromWebsite(personaId: string, websiteId: str
     if (!org) throw new Error("Unauthorized");
 
     const supabase = await createClient();
+
+    // Verify persona belongs to this org before allowing deletion
+    const { data: persona } = await supabase
+        .from("personas")
+        .select("id")
+        .eq("id", personaId)
+        .eq("organization_id", org.id)
+        .single();
+    if (!persona) throw new Error("Persona not found or does not belong to your organization");
 
     await supabase
         .from("persona_website_assignments")

@@ -5,12 +5,14 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Loader2, Download, Check, Save } from "lucide-react";
 import { ArticleEditor } from "@/components/editor/article-editor";
+import { KeywordResearchStep } from "@/components/pipeline/keyword-research-step";
+import { SeoCheckPanel } from "@/components/pipeline/seo-check-panel";
 
 type Website = { id: string; name: string; url: string; platform_type: string };
 type Persona = { id: string; name: string; bio: string | null; badges?: string[]; usage_count?: number };
 type ModelOption = { id: string; label: string; provider: string };
 
-type Step = "site" | "persona" | "brief" | "generate" | "done";
+type Step = "site" | "persona" | "brief" | "keywords" | "generate" | "done";
 
 const FORMATS = [
   { value: "how-to", label: "How-To Guide" },
@@ -98,8 +100,11 @@ export default function NewArticlePage() {
     loadPersonas();
   }, [selectedWebsite]);
 
-  async function handleGenerate() {
+  async function handleGenerate(overrides?: { primaryKeyword?: string; secondaryKeywords?: string }) {
     if (!selectedWebsite || !selectedPersona) return;
+
+    const pk = overrides?.primaryKeyword ?? brief.primaryKeyword;
+    const sk = overrides?.secondaryKeywords ?? brief.secondaryKeywords;
 
     setIsGenerating(true);
     setGenerationError("");
@@ -119,9 +124,9 @@ export default function NewArticlePage() {
           targetLength: brief.targetLength,
           model: brief.model || undefined,
           notes: brief.notes || undefined,
-          primaryKeyword: brief.primaryKeyword || undefined,
-          secondaryKeywords: brief.secondaryKeywords
-            ? brief.secondaryKeywords.split(",").map((s) => s.trim()).filter(Boolean)
+          primaryKeyword: pk || undefined,
+          secondaryKeywords: sk
+            ? sk.split(",").map((s) => s.trim()).filter(Boolean)
             : undefined,
         }),
       });
@@ -192,8 +197,8 @@ export default function NewArticlePage() {
     window.open(`/api/articles/${articleId}/export?format=${format}`, "_blank");
   }
 
-  const stepOrder: Step[] = ["site", "persona", "brief", "generate"];
-  const currentIdx = step === "done" ? 4 : stepOrder.indexOf(step);
+  const stepOrder: Step[] = ["site", "persona", "brief", "keywords", "generate"];
+  const currentIdx = step === "done" ? 5 : stepOrder.indexOf(step);
 
   return (
     <div className="max-w-4xl w-full">
@@ -230,7 +235,7 @@ export default function NewArticlePage() {
             >
               {currentIdx > i ? <Check size={16} /> : i + 1}
             </div>
-            {i < 3 && (
+            {i < stepOrder.length - 1 && (
               <div className="w-12 h-0.5" style={{ background: "var(--border)" }} />
             )}
           </div>
@@ -508,21 +513,44 @@ export default function NewArticlePage() {
               <button
                 onClick={() => {
                   if (!brief.topic.trim()) return;
-                  setStep("generate");
-                  handleGenerate();
+                  setStep("keywords");
                 }}
                 disabled={!brief.topic.trim()}
                 className="px-6 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition disabled:opacity-40"
                 style={{ background: "var(--accent)", color: "var(--accent-text)" }}
               >
-                Generate Article <ArrowRight size={16} />
+                Next: Keywords <ArrowRight size={16} />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Step 4: Generation / Editor */}
+      {/* Step 4: Keyword Research */}
+      {step === "keywords" && (
+        <KeywordResearchStep
+          topic={brief.topic}
+          currentPrimary={brief.primaryKeyword}
+          currentSecondary={brief.secondaryKeywords}
+          onApply={(primary, secondary) => {
+            const pk = primary;
+            const sk = secondary.join(", ");
+            setBrief((prev) => ({
+              ...prev,
+              primaryKeyword: pk,
+              secondaryKeywords: sk,
+            }));
+            setStep("generate");
+            handleGenerate({ primaryKeyword: pk, secondaryKeywords: sk });
+          }}
+          onSkip={() => {
+            setStep("generate");
+            handleGenerate();
+          }}
+        />
+      )}
+
+      {/* Step 5: Generation / Editor */}
       {(step === "generate" || step === "done") && (
         <div className="space-y-6">
           {/* Generation status */}
@@ -618,6 +646,22 @@ export default function NewArticlePage() {
                 onChange={(html) => setEditedHtml(html)}
               />
             </div>
+          )}
+
+          {/* SEO Audit */}
+          {step === "done" && editedHtml && (
+            <SeoCheckPanel
+              articleId={articleId}
+              html={editedHtml}
+              primaryKeyword={brief.primaryKeyword}
+              secondaryKeywords={
+                brief.secondaryKeywords
+                  ? brief.secondaryKeywords.split(",").map((s) => s.trim()).filter(Boolean)
+                  : undefined
+              }
+              targetWordCount={brief.targetLength}
+              onFixApplied={(fixedHtml) => setEditedHtml(fixedHtml)}
+            />
           )}
 
           {/* Actions */}
