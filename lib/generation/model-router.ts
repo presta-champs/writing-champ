@@ -7,6 +7,8 @@ export type Provider = 'anthropic' | 'openai' | 'gemini';
 export type RouterParams = GenerationRequest & {
   /** Resolved API keys per provider, passed from the route handler */
   providerKeys?: Partial<Record<Provider, string>>;
+  /** Target word count for max_tokens calibration */
+  targetWordCount?: number;
 };
 
 /** All models we expose in the UI, grouped by provider */
@@ -65,7 +67,7 @@ export async function* routeToModel(
   }
 
   const provider = getProvider(model);
-  const genParams = { ...params, model, apiKey };
+  const genParams = { ...params, model, apiKey, targetWordCount: params.targetWordCount };
 
   switch (provider) {
     case 'openai':

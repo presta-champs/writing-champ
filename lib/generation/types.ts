@@ -5,6 +5,8 @@ export type GenerationRequest = {
   maxTokens?: number;
   /** Per-org API key. Falls back to env var if not provided. */
   apiKey?: string;
+  /** Target word count — used to calibrate max_tokens for length enforcement */
+  targetWordCount?: number;
 };
 
 export type GenerationResult = {

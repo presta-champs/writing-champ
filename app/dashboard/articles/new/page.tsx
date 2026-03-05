@@ -47,6 +47,8 @@ export default function NewArticlePage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [generationError, setGenerationError] = useState("");
   const [articleId, setArticleId] = useState<string | null>(null);
+  const [metaTitle, setMetaTitle] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
 
   const supabase = createClient();
 
@@ -153,16 +155,24 @@ export default function NewArticlePage() {
       setEditedHtml(fullText);
       setStep("done");
 
-      // Fetch the article ID from the most recent draft
+      // Fetch the article ID and meta fields from the most recent draft
       const { data: recentArticle } = await supabase
         .from("articles")
-        .select("id")
+        .select("id, meta_title, meta_description, body")
         .eq("status", "draft")
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
 
-      if (recentArticle) setArticleId(recentArticle.id);
+      if (recentArticle) {
+        setArticleId(recentArticle.id);
+        setMetaTitle(recentArticle.meta_title || "");
+        setMetaDescription(recentArticle.meta_description || "");
+        // Use the DB version (may have been revised for word count)
+        if (recentArticle.body && recentArticle.body !== fullText) {
+          setEditedHtml(recentArticle.body);
+        }
+      }
     } catch (error) {
       setGenerationError(
         error instanceof Error ? error.message : "An unexpected error occurred."
@@ -180,7 +190,12 @@ export default function NewArticlePage() {
       const wordCount = editedHtml.replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length;
       const { error } = await supabase
         .from("articles")
-        .update({ body: editedHtml, word_count: wordCount })
+        .update({
+          body: editedHtml,
+          word_count: wordCount,
+          meta_title: metaTitle || null,
+          meta_description: metaDescription || null,
+        })
         .eq("id", articleId);
       if (error) throw error;
       setSaveMessage("Saved.");
@@ -585,6 +600,80 @@ export default function NewArticlePage() {
             </div>
           )}
 
+          {/* Meta fields — shown after generation */}
+          {step === "done" && (
+            <div
+              className="rounded-xl p-5 space-y-4"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+            >
+              <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                Meta Tags
+              </h3>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Meta Title
+                  </label>
+                  <span
+                    className="text-[10px] tabular-nums"
+                    style={{
+                      color: metaTitle.length > 60
+                        ? "var(--danger)"
+                        : metaTitle.length >= 50
+                        ? "var(--success)"
+                        : "var(--text-muted)",
+                    }}
+                  >
+                    {metaTitle.length}/60
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={metaTitle}
+                  onChange={(e) => setMetaTitle(e.target.value)}
+                  placeholder="SEO-optimized page title (50-60 characters ideal)"
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                  style={{
+                    border: `1px solid ${!metaTitle ? "var(--danger)" : "var(--border)"}`,
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Meta Description
+                  </label>
+                  <span
+                    className="text-[10px] tabular-nums"
+                    style={{
+                      color: metaDescription.length > 160
+                        ? "var(--danger)"
+                        : metaDescription.length >= 120
+                        ? "var(--success)"
+                        : "var(--text-muted)",
+                    }}
+                  >
+                    {metaDescription.length}/160
+                  </span>
+                </div>
+                <textarea
+                  value={metaDescription}
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  placeholder="Compelling description for search results (120-160 characters ideal)"
+                  rows={2}
+                  className="w-full rounded-lg px-3 py-2 text-sm resize-none"
+                  style={{
+                    border: `1px solid ${!metaDescription ? "var(--danger)" : "var(--border)"}`,
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Tiptap editor — streams during generation, editable after */}
           {(generatedHtml || editedHtml) && (
             <div>
@@ -653,6 +742,8 @@ export default function NewArticlePage() {
             <SeoCheckPanel
               articleId={articleId}
               html={editedHtml}
+              metaTitle={metaTitle || undefined}
+              metaDescription={metaDescription || undefined}
               primaryKeyword={brief.primaryKeyword}
               secondaryKeywords={
                 brief.secondaryKeywords
@@ -661,6 +752,10 @@ export default function NewArticlePage() {
               }
               targetWordCount={brief.targetLength}
               onFixApplied={(fixedHtml) => setEditedHtml(fixedHtml)}
+              onMetaChange={(title, desc) => {
+                setMetaTitle(title);
+                setMetaDescription(desc);
+              }}
             />
           )}
 
@@ -682,6 +777,8 @@ export default function NewArticlePage() {
                   setArticleId(null);
                   setGenerationError("");
                   setSaveMessage("");
+                  setMetaTitle("");
+                  setMetaDescription("");
                 }}
                 className="text-sm font-medium hover:underline"
                 style={{ color: "var(--accent)" }}

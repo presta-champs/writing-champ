@@ -1,10 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { GenerationRequest, GenerationResult } from './types';
-import { estimateTokens } from './token-counter';
+import { estimateTokens, calibrateMaxTokens } from './token-counter';
 import { estimateCost } from './cost-estimator';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
-const DEFAULT_MAX_TOKENS = 8192;
 
 function getClient(apiKey?: string): Anthropic {
   return new Anthropic({
@@ -21,7 +20,7 @@ export async function* generateWithClaude(
 ): AsyncGenerator<string, GenerationResult> {
   const client = getClient(params.apiKey);
   const model = params.model || DEFAULT_MODEL;
-  const maxTokens = params.maxTokens || DEFAULT_MAX_TOKENS;
+  const maxTokens = params.maxTokens || calibrateMaxTokens(params.targetWordCount);
 
   const inputTokens = estimateTokens(params.systemPrompt + params.userPrompt);
   let outputText = '';
@@ -65,7 +64,7 @@ export async function generateWithClaudeSync(
 ): Promise<GenerationResult> {
   const client = getClient(params.apiKey);
   const model = params.model || DEFAULT_MODEL;
-  const maxTokens = params.maxTokens || DEFAULT_MAX_TOKENS;
+  const maxTokens = params.maxTokens || calibrateMaxTokens(params.targetWordCount);
 
   const message = await client.messages.create({
     model,

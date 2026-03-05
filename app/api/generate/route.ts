@@ -8,6 +8,7 @@ import { generatorToStream } from '@/lib/generation/stream';
 import { logUsageEvent } from '@/lib/usage';
 import { decrypt } from '@/lib/crypto';
 import type { GenerationResult } from '@/lib/generation/types';
+import { enforceWordCount } from '@/lib/generation/word-count-enforcer';
 
 const GenerateSchema = z.object({
   websiteId: z.string().uuid(),
@@ -179,45 +180,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve the API key that will actually be used (for revision pass)
+    const actualProvider = getProvider(requestedModel || 'claude-sonnet-4-20250514');
+    const actualApiKey = providerKeys[actualProvider] || Object.values(providerKeys)[0] || '';
+
     // Start generation — router handles fallback if selected model's provider has no key
     const generator = routeToModel({
       systemPrompt,
       userPrompt,
       model: requestedModel,
       providerKeys,
+      targetWordCount: targetLength,
     });
 
     // Create streaming response
     const stream = generatorToStream(generator, async (result: GenerationResult) => {
-      // After streaming completes, save article and log usage
+      // After streaming completes, enforce word count and save article
       try {
-        const titleMatch = result.text.match(/<h2[^>]*>(.*?)<\/h2>/i);
-        const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '') : topic;
-        const wordCount = result.text.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length;
+        // Word count enforcement — revision pass if >10% off target
+        const enforced = await enforceWordCount({
+          result,
+          targetWordCount: targetLength,
+          apiKey: actualApiKey,
+          model: result.model,
+        });
 
-        // Auto-generate meta title (truncate to 60 chars)
-        let metaTitle = title;
-        if (primaryKeyword && !metaTitle.toLowerCase().includes(primaryKeyword.toLowerCase())) {
-          metaTitle = `${title} — ${primaryKeyword.charAt(0).toUpperCase() + primaryKeyword.slice(1)}`;
-        }
-        if (metaTitle.length > 60) {
-          metaTitle = metaTitle.slice(0, 57) + '...';
-        }
-
-        // Auto-generate meta description from first paragraph
+        // Parse meta block from model output, then strip it from the article body
+        let articleBody = enforced.text;
+        let metaTitle = '';
         let metaDescription = '';
-        const pMatch = result.text.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
-        if (pMatch) {
-          metaDescription = pMatch[1].replace(/<[^>]*>/g, '').trim();
+
+        const metaBlockMatch = articleBody.match(/<!--META[\s\S]*?TITLE:\s*(.*?)[\r\n]+\s*DESCRIPTION:\s*(.*?)[\r\n]+\s*META-->/);
+        if (metaBlockMatch) {
+          metaTitle = metaBlockMatch[1].trim();
+          metaDescription = metaBlockMatch[2].trim();
+          // Strip the meta block from article body
+          articleBody = articleBody.replace(metaBlockMatch[0], '').trim();
         }
+
+        const titleMatch = articleBody.match(/<h2[^>]*>(.*?)<\/h2>/i);
+        const title = titleMatch ? titleMatch[1].replace(/<[^>]*>/g, '') : topic;
+        const wordCount = articleBody.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length;
+
+        // Fallback meta generation if model didn't output the meta block
+        if (!metaTitle) {
+          metaTitle = title;
+          if (primaryKeyword && !metaTitle.toLowerCase().includes(primaryKeyword.toLowerCase())) {
+            metaTitle = `${primaryKeyword.charAt(0).toUpperCase() + primaryKeyword.slice(1)} — ${title}`;
+          }
+          if (metaTitle.length > 60) {
+            metaTitle = metaTitle.slice(0, 57) + '...';
+          }
+        }
+
         if (!metaDescription) {
-          metaDescription = result.text.replace(/<[^>]*>/g, ' ').trim().slice(0, 300);
-        }
-        if (primaryKeyword && !metaDescription.toLowerCase().includes(primaryKeyword.toLowerCase())) {
-          metaDescription = `${primaryKeyword.charAt(0).toUpperCase() + primaryKeyword.slice(1)}: ${metaDescription}`;
-        }
-        if (metaDescription.length > 155) {
-          metaDescription = metaDescription.slice(0, 152).trimEnd() + '...';
+          const pMatch = articleBody.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+          if (pMatch) {
+            metaDescription = pMatch[1].replace(/<[^>]*>/g, '').trim();
+          }
+          if (!metaDescription) {
+            metaDescription = articleBody.replace(/<[^>]*>/g, ' ').trim().slice(0, 300);
+          }
+          if (primaryKeyword && !metaDescription.toLowerCase().includes(primaryKeyword.toLowerCase())) {
+            metaDescription = `${primaryKeyword.charAt(0).toUpperCase() + primaryKeyword.slice(1)}: ${metaDescription}`;
+          }
+          if (metaDescription.length > 155) {
+            metaDescription = metaDescription.slice(0, 152).trimEnd() + '...';
+          }
         }
 
         const { data: article } = await supabase
@@ -225,14 +254,14 @@ export async function POST(request: NextRequest) {
           .insert({
             organization_id: orgId,
             title,
-            body: result.text,
+            body: articleBody,
             persona_id: personaId,
             website_id: websiteId,
             format,
             word_count: wordCount,
             primary_keyword: primaryKeyword || null,
             secondary_keywords: secondaryKeywords || [],
-            model_used: result.model,
+            model_used: enforced.model,
             prompt_snapshot: JSON.stringify({ systemPrompt, userPrompt }),
             status: 'draft',
             created_by: user.id,
@@ -247,8 +276,8 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           articleId: article?.id,
           eventType: 'generation',
-          modelUsed: result.model,
-          estimatedCostUsd: result.costUsd,
+          modelUsed: enforced.model,
+          estimatedCostUsd: enforced.costUsd,
         });
 
         // Increment persona usage count for this website
