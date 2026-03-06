@@ -1,10 +1,11 @@
 import { useUser } from "@/lib/hooks/use-user";
 import { useOrganization } from "@/lib/hooks/use-organization";
 import { redirect } from "next/navigation";
-import { getApiKeyStatus } from "@/app/actions/settings";
+import { getApiKeyStatus, getEditorialGuidelines } from "@/app/actions/settings";
 import { OrgNameForm } from "@/components/settings/org-name-form";
 import { ApiKeysForm } from "@/components/settings/api-keys-form";
-import { Key, Building2 } from "lucide-react";
+import { EditorialSettings } from "@/components/settings/editorial-settings";
+import { Key, Building2, BookOpenText } from "lucide-react";
 
 export default async function SettingsPage() {
   const user = await useUser();
@@ -13,6 +14,7 @@ export default async function SettingsPage() {
   if (!user || !org) redirect("/login");
 
   const apiKeys = await getApiKeyStatus();
+  const editorial = await getEditorialGuidelines();
   const isAdmin = org.role === "admin";
 
   return (
@@ -69,6 +71,25 @@ export default async function SettingsPage() {
         </p>
 
         <ApiKeysForm keys={apiKeys} isAdmin={isAdmin} />
+      </section>
+
+      {/* Editorial Guidelines */}
+      <section
+        className="rounded-xl p-6"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <BookOpenText size={18} style={{ color: "var(--accent)" }} />
+          <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
+            Editorial Guidelines
+          </h2>
+        </div>
+        <p className="text-xs mb-5" style={{ color: "var(--text-muted)" }}>
+          Organization-wide rules that apply to all articles, regardless of persona.
+          These take priority over individual persona voice settings.
+        </p>
+
+        <EditorialSettings initial={editorial} isAdmin={isAdmin} />
       </section>
 
       {/* Account info */}

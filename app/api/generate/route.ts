@@ -20,6 +20,7 @@ const GenerateSchema = z.object({
   notes: z.string().optional(),
   primaryKeyword: z.string().optional(),
   secondaryKeywords: z.array(z.string()).optional(),
+  readabilityTarget: z.number().int().min(20).max(80).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { websiteId, personaId, topic, format, targetLength, model: requestedModel, notes, primaryKeyword, secondaryKeywords } = parsed.data;
+    const { websiteId, personaId, topic, format, targetLength, model: requestedModel, notes, primaryKeyword, secondaryKeywords, readabilityTarget } = parsed.data;
 
     // Get user's org
     const { data: membership } = await supabase
@@ -82,6 +83,13 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Persona not found' }, { status: 404 });
     }
 
+    // Fetch org editorial guidelines
+    const { data: orgRow } = await supabase
+      .from('organizations')
+      .select('editorial_pov, editorial_person_rules, editorial_commercial_tone, editorial_dos, editorial_donts, editorial_custom_rules')
+      .eq('id', orgId)
+      .single();
+
     // Fetch content index for internal linking
     const { data: contentIndexRaw } = await supabase
       .from('website_content_index')
@@ -98,6 +106,14 @@ export async function POST(request: NextRequest) {
 
     // Assemble prompt
     const { systemPrompt, userPrompt } = assemblePrompt({
+      organization: orgRow ? {
+        editorial_pov: orgRow.editorial_pov,
+        editorial_person_rules: orgRow.editorial_person_rules,
+        editorial_commercial_tone: orgRow.editorial_commercial_tone,
+        editorial_dos: orgRow.editorial_dos,
+        editorial_donts: orgRow.editorial_donts,
+        editorial_custom_rules: orgRow.editorial_custom_rules,
+      } : undefined,
       website: {
         name: website.name,
         url: website.url,
@@ -148,6 +164,7 @@ export async function POST(request: NextRequest) {
         notes,
         primaryKeyword,
         secondaryKeywords,
+        readabilityTarget,
       },
     });
 
@@ -170,8 +187,10 @@ export async function POST(request: NextRequest) {
     const providerKeys: Partial<Record<Provider, string>> = {};
     const anthropicKey = resolveKey('anthropic_api_key', 'ANTHROPIC_API_KEY');
     const openaiKey = resolveKey('openai_api_key', 'OPENAI_API_KEY');
+    const geminiKey = resolveKey('google_ai_api_key', 'GOOGLE_AI_API_KEY');
     if (anthropicKey) providerKeys.anthropic = anthropicKey;
     if (openaiKey) providerKeys.openai = openaiKey;
+    if (geminiKey) providerKeys.gemini = geminiKey;
 
     if (!Object.keys(providerKeys).length) {
       return Response.json(
@@ -263,6 +282,7 @@ export async function POST(request: NextRequest) {
             secondary_keywords: secondaryKeywords || [],
             model_used: enforced.model,
             prompt_snapshot: JSON.stringify({ systemPrompt, userPrompt }),
+            readability_target: readabilityTarget || 50,
             status: 'draft',
             created_by: user.id,
             meta_title: metaTitle,

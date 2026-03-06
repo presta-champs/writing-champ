@@ -20,6 +20,9 @@ import {
 import { ArticleEditor } from "@/components/editor/article-editor";
 import { htmlToMarkdown } from "@/lib/export/html-to-markdown";
 import { SeoCheckPanel } from "@/components/pipeline/seo-check-panel";
+import { ImageMarkers } from "@/components/editor/image-markers";
+import { FeaturedImage } from "@/components/editor/featured-image";
+import { PublishPanel } from "@/components/articles/publish-panel";
 
 type ArticleDetail = {
   id: string;
@@ -35,7 +38,13 @@ type ArticleDetail = {
   updated_at: string;
   meta_title: string | null;
   meta_description: string | null;
-  website: { id: string; name: string } | null;
+  readability_target: number | null;
+  featured_image_url: string | null;
+  external_post_id: string | null;
+  published_at: string | null;
+  scheduled_at: string | null;
+  mcp_publish_log: Record<string, unknown> | null;
+  website: { id: string; name: string; mcp_status: string } | null;
   persona: { id: string; name: string } | null;
 };
 
@@ -43,6 +52,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   draft: { label: "Draft", color: "var(--text-secondary)", bg: "var(--surface-warm)" },
   pending_approval: { label: "Pending", color: "var(--accent)", bg: "var(--accent-light)" },
   approved: { label: "Approved", color: "var(--success)", bg: "var(--success-light)" },
+  scheduled: { label: "Scheduled", color: "var(--accent)", bg: "var(--accent-light)" },
   published: { label: "Published", color: "var(--success)", bg: "var(--success-light)" },
   failed: { label: "Failed", color: "var(--danger)", bg: "var(--danger-light)" },
 };
@@ -57,12 +67,15 @@ export default function ArticleDetailPage() {
   const [editedHtml, setEditedHtml] = useState<string | null>(null);
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
+  const [featuredImageUrl, setFeaturedImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<string>("draft");
+  const [approvalRequired, setApprovalRequired] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
   // Close export dropdown when clicking outside
@@ -93,11 +106,12 @@ export default function ArticleDetailPage() {
 
       if (!membership) return;
 
+      // Core article query (fields that always exist)
       const { data } = await supabase
         .from("articles")
         .select(`
           id, title, body, format, word_count, primary_keyword, secondary_keywords,
-          model_used, status, created_at, updated_at, meta_title, meta_description,
+          model_used, status, created_at, updated_at, meta_title, meta_description, featured_image_url,
           website:websites!articles_website_id_fkey(id, name),
           persona:personas!articles_persona_id_fkey(id, name)
         `)
@@ -105,10 +119,57 @@ export default function ArticleDetailPage() {
         .eq("organization_id", membership.organization_id)
         .single();
 
-      const art = data as unknown as ArticleDetail;
+      if (!data) {
+        setLoading(false);
+        return;
+      }
+
+      // Try to fetch publish-related fields separately (may not exist if migration not run)
+      let publishFields: {
+        readability_target?: number | null;
+        external_post_id?: string | null;
+        published_at?: string | null;
+        scheduled_at?: string | null;
+        mcp_publish_log?: Record<string, unknown> | null;
+      } = {};
+      const { data: extraData } = await supabase
+        .from("articles")
+        .select("readability_target, external_post_id, published_at, scheduled_at, mcp_publish_log")
+        .eq("id", articleId)
+        .single();
+      if (extraData) {
+        publishFields = extraData as typeof publishFields;
+      }
+
+      // Fetch website mcp_status separately
+      const rawWebsite = data.website as unknown as { id: string; name: string } | null;
+      let websiteWithStatus: { id: string; name: string; mcp_status?: string } | null = rawWebsite ? { ...rawWebsite } : null;
+      if (websiteWithStatus?.id) {
+        const { data: wsData } = await supabase
+          .from("websites")
+          .select("mcp_status")
+          .eq("id", websiteWithStatus.id)
+          .single();
+        if (wsData) {
+          websiteWithStatus = { ...websiteWithStatus, mcp_status: wsData.mcp_status };
+        }
+      }
+
+      const art = { ...data, ...publishFields, website: websiteWithStatus } as unknown as ArticleDetail;
       setArticle(art);
       setMetaTitle(art?.meta_title || "");
       setMetaDescription(art?.meta_description || "");
+      setFeaturedImageUrl(art?.featured_image_url || null);
+      setCurrentStatus(art?.status || "draft");
+
+      // Check if org has approval workflow enabled
+      const { data: orgData } = await supabase
+        .from("organizations")
+        .select("approval_workflow_enabled")
+        .eq("id", membership.organization_id)
+        .single();
+      setApprovalRequired(orgData?.approval_workflow_enabled || false);
+
       setLoading(false);
     }
     load();
@@ -117,7 +178,8 @@ export default function ArticleDetailPage() {
   const hasChanges =
     (editedHtml !== null && editedHtml !== article?.body) ||
     metaTitle !== (article?.meta_title || "") ||
-    metaDescription !== (article?.meta_description || "");
+    metaDescription !== (article?.meta_description || "") ||
+    featuredImageUrl !== (article?.featured_image_url || null);
 
   const handleSave = useCallback(async () => {
     if (!article) return;
@@ -134,6 +196,7 @@ export default function ArticleDetailPage() {
         word_count: wordCount,
         meta_title: metaTitle || null,
         meta_description: metaDescription || null,
+        featured_image_url: featuredImageUrl || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", article.id);
@@ -144,11 +207,12 @@ export default function ArticleDetailPage() {
       word_count: wordCount,
       meta_title: metaTitle || null,
       meta_description: metaDescription || null,
+      featured_image_url: featuredImageUrl || null,
     } : prev);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [article, editedHtml, metaTitle, metaDescription]);
+  }, [article, editedHtml, metaTitle, metaDescription, featuredImageUrl]);
 
   const handleDelete = useCallback(async () => {
     if (!article) return;
@@ -265,7 +329,7 @@ export default function ArticleDetailPage() {
     );
   }
 
-  const sc = STATUS_CONFIG[article.status] || STATUS_CONFIG.draft;
+  const sc = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.draft;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -454,6 +518,27 @@ export default function ArticleDetailPage() {
         )}
       </div>
 
+      {/* Image markers (if any [IMAGE: ...] placeholders remain) */}
+      {(editedHtml ?? article.body ?? "").includes("[IMAGE:") && (
+        <div className="mb-4">
+          <ImageMarkers
+            html={editedHtml ?? article.body ?? ""}
+            onChange={(newHtml) => setEditedHtml(newHtml)}
+            onFeaturedImageSet={(url) => setFeaturedImageUrl(url)}
+            primaryKeyword={article.primary_keyword ?? undefined}
+          />
+        </div>
+      )}
+
+      {/* Featured image */}
+      <div className="mb-4">
+        <FeaturedImage
+          currentUrl={featuredImageUrl || undefined}
+          onUrlChange={(url) => setFeaturedImageUrl(url)}
+          primaryKeyword={article.primary_keyword ?? undefined}
+        />
+      </div>
+
       {/* Meta fields */}
       <div
         className="rounded-xl p-5 mb-4 space-y-4"
@@ -532,6 +617,7 @@ export default function ArticleDetailPage() {
         onChange={(html) => setEditedHtml(html)}
         editable={true}
         streaming={false}
+        primaryKeyword={article.primary_keyword ?? undefined}
       />
 
       {/* SEO Audit */}
@@ -548,6 +634,26 @@ export default function ArticleDetailPage() {
           onMetaChange={(title, desc) => {
             setMetaTitle(title);
             setMetaDescription(desc);
+          }}
+        />
+      </div>
+
+      {/* Publish */}
+      <div className="mt-6">
+        <PublishPanel
+          articleId={article.id}
+          articleStatus={currentStatus}
+          websiteId={article.website?.id}
+          websiteName={article.website?.name}
+          cmsConnected={article.website?.mcp_status === "connected"}
+          externalPostId={article.external_post_id}
+          publishedAt={article.published_at}
+          scheduledAt={article.scheduled_at}
+          postUrl={(article.mcp_publish_log as Record<string, string> | null)?.postUrl}
+          approvalRequired={approvalRequired}
+          onStatusChange={(newStatus) => {
+            setCurrentStatus(newStatus);
+            setArticle((prev) => prev ? { ...prev, status: newStatus } : prev);
           }}
         />
       </div>

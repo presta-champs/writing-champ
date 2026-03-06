@@ -78,6 +78,7 @@ function getScoreBg(score: number) {
 }
 
 export function SeoCheckPanel({
+  articleId,
   html,
   metaTitle,
   metaDescription,
@@ -124,6 +125,7 @@ export function SeoCheckPanel({
           primaryKeyword: primaryKeyword || "",
           secondaryKeywords: secondaryKeywords || [],
           targetWordCount: targetWordCount || 1500,
+          articleId: articleId || undefined,
         }),
       });
       if (!res.ok) {

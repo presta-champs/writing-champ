@@ -29,12 +29,12 @@ export async function createOrganization(formData: FormData) {
         return redirect("/onboarding?message=Failed to register user record");
     }
 
-    // Create the organization
-    const { data: orgData, error: orgError } = await supabase
+    // Create the organization (generate ID here to avoid needing SELECT after INSERT,
+    // since RLS SELECT policy requires membership which doesn't exist yet)
+    const orgId = crypto.randomUUID();
+    const { error: orgError } = await supabase
         .from('organizations')
-        .insert([{ name: orgName }])
-        .select()
-        .single();
+        .insert([{ id: orgId, name: orgName }]);
 
     if (orgError) {
         console.error(orgError);
@@ -44,7 +44,7 @@ export async function createOrganization(formData: FormData) {
     // Link the user to the organization as an admin
     const { error: memberError } = await supabase
         .from('organization_members')
-        .insert([{ organization_id: orgData.id, user_id: user.id, role: 'admin' }]);
+        .insert([{ organization_id: orgId, user_id: user.id, role: 'admin' }]);
 
     if (memberError) {
         console.error(memberError);

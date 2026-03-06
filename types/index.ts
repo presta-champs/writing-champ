@@ -22,6 +22,13 @@ export type Organization = {
     approval_workflow_enabled: boolean;
     external_seo_grader_enabled: boolean;
     api_integration_keys?: Record<string, any>;
+    // Editorial guidelines (org-wide, overrides persona voice)
+    editorial_pov?: 'first_person' | 'second_person' | 'third_person' | null;
+    editorial_person_rules?: string;
+    editorial_commercial_tone?: string;
+    editorial_dos?: string[];
+    editorial_donts?: string[];
+    editorial_custom_rules?: string;
     created_at: string;
 };
 
@@ -130,6 +137,7 @@ export type Article = {
     secondary_keywords?: string[];
     model_used?: string;
     prompt_snapshot?: string;
+    readability_target?: number;
     seo_score: number;
     seo_audit_snapshot?: Record<string, unknown>;
     cross_site_links_snapshot?: Record<string, unknown>;

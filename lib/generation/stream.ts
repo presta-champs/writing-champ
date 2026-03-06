@@ -25,8 +25,19 @@ export function generatorToStream(
         } while (!result.done);
 
         // result.value contains the GenerationResult when done
-        if (result.value && onComplete) {
-          onComplete(result.value);
+        if (result.value) {
+          // Send cost metadata as a trailing marker the client can parse
+          const costMarker = `\n<!--GENERATION_COST:${JSON.stringify({
+            costUsd: result.value.costUsd,
+            model: result.value.model,
+            inputTokens: result.value.inputTokens,
+            outputTokens: result.value.outputTokens,
+          })}-->`;
+          controller.enqueue(encoder.encode(costMarker));
+
+          if (onComplete) {
+            onComplete(result.value);
+          }
         }
 
         controller.close();

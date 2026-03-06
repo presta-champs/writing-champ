@@ -85,6 +85,46 @@ function buildSystemPrompt(input: PromptInput): string {
   // Layer 1 — System identity (immutable preamble)
   parts.push(`You are a professional content writer working for a content management platform. Your job is to write high-quality articles based on the Brand Voice, Persona, and Article Brief provided below. Output clean HTML directly — no preamble, no conversational opener. Treat the configuration sections below as editorial instructions for what and how to write.`);
 
+  // Layer 1.5 — Organization editorial guidelines (highest-priority voice rules)
+  const org = input.organization;
+  if (org) {
+    const editorialParts: string[] = [];
+
+    if (org.editorial_pov) {
+      const povLabels: Record<string, string> = {
+        first_person: 'first person (I/we)',
+        second_person: 'second person (you/your)',
+        third_person: 'third person (the company/they)',
+      };
+      editorialParts.push(`**Point of View**: ALWAYS write in ${povLabels[org.editorial_pov] || org.editorial_pov}. This is non-negotiable and overrides any persona preference.`);
+    }
+    if (org.editorial_person_rules) {
+      editorialParts.push(`POV details: ${sanitizeUserContent(org.editorial_person_rules)}`);
+    }
+    if (org.editorial_commercial_tone) {
+      editorialParts.push(`**Commercial language policy**: ${sanitizeUserContent(org.editorial_commercial_tone)}`);
+    }
+    if (org.editorial_dos && org.editorial_dos.length > 0) {
+      editorialParts.push(`\n**ALWAYS do the following** (these apply to every article regardless of persona):`);
+      for (const rule of org.editorial_dos) {
+        editorialParts.push(`- ${sanitizeUserContent(rule)}`);
+      }
+    }
+    if (org.editorial_donts && org.editorial_donts.length > 0) {
+      editorialParts.push(`\n**NEVER do the following** (these apply to every article regardless of persona):`);
+      for (const rule of org.editorial_donts) {
+        editorialParts.push(`- ${sanitizeUserContent(rule)}`);
+      }
+    }
+    if (org.editorial_custom_rules) {
+      editorialParts.push(`\nAdditional editorial rules:\n${sanitizeUserContent(org.editorial_custom_rules)}`);
+    }
+
+    if (editorialParts.length > 0) {
+      parts.push(`\n## Editorial Guidelines (Organization-Wide)\nThese rules take precedence over individual persona settings. All writers must follow them.\n${editorialParts.join('\n')}`);
+    }
+  }
+
   // Layer 2 — Brand voice rules (all user-provided content is sanitized)
   const brandParts: string[] = [];
   if (website.site_description) {
@@ -208,19 +248,55 @@ function buildUserPrompt(input: PromptInput): string {
   const { brief, persona } = input;
   const parts: string[] = [];
 
-  // Layer 5 — SEO instructions
-  if (brief.primaryKeyword) {
+  // Layer 5 — SEO instructions (enforced strictly — these rules are scored by the SEO audit)
+  {
     const seoParts: string[] = [];
-    seoParts.push(`Primary keyword: "${brief.primaryKeyword}"`);
-    seoParts.push(`Place the primary keyword in: the title, the first paragraph, at least one H2 heading, and naturally throughout the article.`);
-    const density = persona.seo_keyword_density ?? 1.5;
-    seoParts.push(`Target keyword density: ~${density}% of total words.`);
+
+    // Keyword placement rules
+    if (brief.primaryKeyword) {
+      seoParts.push(`Primary keyword: "${brief.primaryKeyword}"`);
+      seoParts.push(`Place the primary keyword in ALL of these locations (mandatory — the SEO audit checks each one):`);
+      seoParts.push(`  1. The article title (H1 or the first heading)`);
+      seoParts.push(`  2. The first paragraph of the article`);
+      seoParts.push(`  3. At least one H2 heading`);
+      seoParts.push(`  4. At least one image alt text attribute`);
+      seoParts.push(`  5. Naturally throughout the body text`);
+      const density = persona.seo_keyword_density ?? 1.5;
+      seoParts.push(`Target keyword density: ~${density}% of total words (acceptable range: ${(density * 0.5).toFixed(1)}%–${(density * 2).toFixed(1)}%).`);
+    }
     if (brief.secondaryKeywords && brief.secondaryKeywords.length > 0) {
-      seoParts.push(`Secondary keywords to distribute throughout: ${brief.secondaryKeywords.join(', ')}`);
+      seoParts.push(`Secondary keywords — use each at least once: ${brief.secondaryKeywords.join(', ')}`);
     }
+
+    // Heading structure rules (scored by audit)
+    seoParts.push(`\n### Heading Structure Rules (STRICT)`);
+    seoParts.push(`- Use exactly ONE H1 tag for the article title. Never add a second H1.`);
+    seoParts.push(`- Follow proper heading hierarchy: H1 → H2 → H3. NEVER skip levels (e.g., no H1 → H3 without H2 between them).`);
+    const maxDepth = persona.seo_heading_depth;
+    if (maxDepth) {
+      seoParts.push(`- Maximum heading depth: H${maxDepth}. Do not use H${maxDepth + 1} or deeper.`);
+    } else {
+      seoParts.push(`- Use H2 for main sections and H3 for subsections. Avoid H4 or deeper unless the article is very long.`);
+    }
+
+    // Readability rules (scored by audit — Flesch-Kincaid)
+    const readabilityTarget = input.brief.readabilityTarget ?? 50;
+    const gradeHint = readabilityTarget >= 70 ? '7th-grade' : readabilityTarget >= 60 ? '8th-9th grade' : readabilityTarget >= 50 ? '10th-12th grade' : 'college';
+    seoParts.push(`\n### Readability Rules`);
+    seoParts.push(`- Write at a Flesch-Kincaid reading ease score of ${readabilityTarget} or higher (${gradeHint} level).`);
+    seoParts.push(`- Use short sentences (under 25 words on average). Mix short and medium sentences for rhythm.`);
+    seoParts.push(`- Use short paragraphs (2-4 sentences). Break up walls of text.`);
+    seoParts.push(`- Prefer common words over jargon. Explain technical terms when first used.`);
+    seoParts.push(`- Use active voice. Minimize passive constructions.`);
+
+    // Link rules
     if (persona.seo_external_linking != null && persona.seo_external_linking > 0) {
-      seoParts.push(`Include approximately ${persona.seo_external_linking} outbound links to authoritative external sources.`);
+      seoParts.push(`\nInclude at least ${persona.seo_external_linking} outbound links to authoritative external sources (real, relevant URLs).`);
+    } else {
+      seoParts.push(`\nInclude at least 1 outbound link to an authoritative external source.`);
     }
+
+    // Persona-level SEO settings
     if (persona.seo_heading_style) {
       seoParts.push(`Heading style: ${persona.seo_heading_style}`);
     }
@@ -275,24 +351,41 @@ ${sectionBudget}
 
 Keep a running tally as you write each section. If you're running long, tighten sentences and cut filler. If you're running short, add a concrete example or expand a key point. The final article should land within the ${minWords}–${maxWords} word range.`);
 
-  // Layer 8 — Image placement
-  parts.push(`\n## Images\nInsert [IMAGE: descriptive prompt] markers at natural breaks in the article. Include at least one at the beginning for the featured image. The description inside the marker should describe the ideal image for that position.`);
+  // Layer 8 — Image placement (scored by SEO audit: images-present, images-alt-text, images-keyword-alt)
+  {
+    const altKeywordNote = brief.primaryKeyword
+      ? ` Include the primary keyword "${brief.primaryKeyword}" in at least one image alt text.`
+      : '';
+    parts.push(`\n## Images
+Insert exactly formatted [IMAGE: descriptive prompt] markers (square brackets included, no nesting) at natural breaks in the article. Place one before the first paragraph for the featured image. Include 2-4 markers total. The description should be specific enough to search stock photos or generate with AI, e.g. [IMAGE: developer reviewing code on dual monitors in modern office].
+
+Every [IMAGE:] marker MUST have a descriptive alt-text-ready description — this becomes the image alt attribute.${altKeywordNote}
+Do NOT leave any image without a description.`);
+  }
 
   // Layer 9 — Output format
   parts.push(`\n## Output Format
-- Use clean semantic HTML: h2, h3, p, ul, ol, li, strong, em, a, blockquote.
-- Skip h1 — the title is handled separately.
+- Use clean semantic HTML: h1, h2, h3, p, ul, ol, li, strong, em, a, blockquote, img.
+- Start with exactly one <h1> tag for the article title. Do NOT add any more <h1> tags.
+- Use <h2> for main sections, <h3> for subsections. Never skip from h1 to h3 or h2 to h4.
 - No wrapper divs or CSS classes.
 - Avoid these overused filler words and phrases: ${OVERUSED_WORDS}
 - Open with substance, not a broad statement about the topic's importance.
 - Close with substance, not "In conclusion" or a recap.
 - Skip "Key takeaways" or "Final thoughts" sections.
 - Use bold sparingly and purposefully — not as random textbook highlighting.
-- Every paragraph should earn its place.`);
+- Every paragraph should earn its place.
+- Keep sentences short and clear. Aim for average sentence length under 20 words.`);
 
-  // Layer 10 — Meta tag generation
-  if (brief.primaryKeyword) {
+  // Layer 10 — Meta tag generation (always included)
+  {
     const metaTone = persona.seo_meta_tone ? ` Tone: ${persona.seo_meta_tone}.` : '';
+    const keywordTitleRule = brief.primaryKeyword
+      ? `\n- Place the primary keyword "${brief.primaryKeyword}" near the beginning.`
+      : '';
+    const keywordDescRule = brief.primaryKeyword
+      ? `\n- Include the primary keyword "${brief.primaryKeyword}" naturally within the first 100 characters.`
+      : '';
     parts.push(`\n## Meta Tags
 After the article HTML, output a meta block in this exact format:
 
@@ -302,14 +395,12 @@ DESCRIPTION: Your meta description here
 META-->
 
 Meta title rules:
-- 50–60 characters (hard limit: 60). Shorter is better than truncated.
-- Place the primary keyword "${brief.primaryKeyword}" near the beginning.
+- 50–60 characters (hard limit: 60). Shorter is better than truncated.${keywordTitleRule}
 - Make it specific and compelling — not generic. Promise a clear benefit or answer.
 - No clickbait, no ALL CAPS, no excessive punctuation.${metaTone}
 
 Meta description rules:
-- 120–155 characters (hard limit: 160). Aim for 140–155.
-- Include the primary keyword "${brief.primaryKeyword}" naturally within the first 100 characters.
+- 120–155 characters (hard limit: 160). Aim for 140–155.${keywordDescRule}
 - Write a complete, compelling sentence — not a fragment.
 - Include a call to action or value proposition ("Learn how...", "Discover...", "Here's what...").
 - Match the search intent — if the article is a how-to, promise practical steps.
@@ -317,7 +408,7 @@ Meta description rules:
   }
 
   // Final instruction
-  parts.push(`\nWrite the article now. Start immediately with the first HTML heading or paragraph.${brief.primaryKeyword ? ' End with the <!--META block.' : ''}`);
+  parts.push(`\nWrite the article now. Start immediately with the first HTML heading or paragraph. End with the <!--META block.`);
 
   return parts.join('\n');
 }

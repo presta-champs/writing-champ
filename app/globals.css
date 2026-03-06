@@ -147,3 +147,31 @@ input[type="checkbox"] {
   height: 0;
   pointer-events: none;
 }
+
+/* Clickable [IMAGE: ...] markers inside the editor */
+.article-editor-content .tiptap .image-marker-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-light);
+  color: var(--accent);
+  border: 1px dashed var(--accent);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  vertical-align: baseline;
+}
+
+.article-editor-content .tiptap .image-marker-widget:hover {
+  background: var(--accent);
+  color: var(--accent-text, #fff);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.article-editor-content .tiptap .image-marker-widget::before {
+  content: "🖼";
+  font-size: 0.9em;
+}

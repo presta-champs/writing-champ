@@ -104,7 +104,7 @@ export function runSeoAudit(input: SeoAuditInput): SeoAuditResult {
   // -----------------------------------------------------------------------
   // Readability
   // -----------------------------------------------------------------------
-  checks.push(...runReadabilityChecks(parsed.bodyText));
+  checks.push(...runReadabilityChecks(parsed.bodyText, personaSeoSettings?.seo_readability_target));
 
   // -----------------------------------------------------------------------
   // Word count

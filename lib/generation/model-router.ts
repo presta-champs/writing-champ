@@ -1,5 +1,6 @@
 import { generateWithClaude } from './claude';
 import { generateWithOpenAI } from './openai';
+import { generateWithGemini } from './gemini';
 import type { GenerationRequest, GenerationResult } from './types';
 
 export type Provider = 'anthropic' | 'openai' | 'gemini';
@@ -19,6 +20,10 @@ export const AVAILABLE_MODELS = [
   { id: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'openai' as Provider },
   { id: 'gpt-4.1', label: 'GPT-4.1', provider: 'openai' as Provider },
   { id: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', provider: 'openai' as Provider },
+  // Google Gemini
+  { id: 'gemini-2.5-pro-preview-06-05', label: 'Gemini 2.5 Pro', provider: 'gemini' as Provider },
+  { id: 'gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash', provider: 'gemini' as Provider },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'gemini' as Provider },
 ] as const;
 
 export function getProvider(model: string): Provider {
@@ -29,11 +34,11 @@ export function getProvider(model: string): Provider {
 }
 
 /** Fallback order: if the chosen provider's key is missing, try the next one */
-const FALLBACK_ORDER: Provider[] = ['anthropic', 'openai'];
+const FALLBACK_ORDER: Provider[] = ['anthropic', 'openai', 'gemini'];
 const FALLBACK_MODELS: Record<Provider, string> = {
   anthropic: 'claude-sonnet-4-20250514',
   openai: 'gpt-4o',
-  gemini: 'gemini-pro',
+  gemini: 'gemini-2.0-flash',
 };
 
 /**
@@ -72,6 +77,8 @@ export async function* routeToModel(
   switch (provider) {
     case 'openai':
       return yield* generateWithOpenAI(genParams);
+    case 'gemini':
+      return yield* generateWithGemini(genParams);
     case 'anthropic':
     default:
       return yield* generateWithClaude(genParams);

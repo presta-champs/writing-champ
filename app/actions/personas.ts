@@ -185,8 +185,10 @@ export async function analyzePersonaVoice(personaId: string) {
 
     const anthropicKey = resolveKey("anthropic_api_key", "ANTHROPIC_API_KEY");
     const openaiKey = resolveKey("openai_api_key", "OPENAI_API_KEY");
+    const geminiKey = resolveKey("google_ai_api_key", "GOOGLE_AI_API_KEY");
     if (anthropicKey) providerKeys.anthropic = anthropicKey;
     if (openaiKey) providerKeys.openai = openaiKey;
+    if (geminiKey) providerKeys.gemini = geminiKey;
 
     if (!Object.keys(providerKeys).length) {
         throw new Error("No API key configured. Add one in Settings.");

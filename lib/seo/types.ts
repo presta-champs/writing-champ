@@ -35,6 +35,7 @@ export type SeoAuditInput = {
     seo_external_linking?: number;
     seo_keyword_density?: number;
     seo_heading_depth?: string | number;
+    seo_readability_target?: number;
     seo_min_word_count?: number;
     seo_max_word_count?: number;
   };

@@ -55,7 +55,8 @@ export async function POST(request: NextRequest) {
       targetWordCount,
       contentIndex,
       personaSeoSettings,
-    } = body as Partial<SeoAuditInput>;
+      articleId,
+    } = body as Partial<SeoAuditInput> & { articleId?: string };
 
     if (!html || typeof html !== 'string') {
       return NextResponse.json(
@@ -72,6 +73,38 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------------
+    // Auto-resolve persona SEO settings from the article if not provided
+    // ---------------------------------------------------------------
+    let resolvedSeoSettings = personaSeoSettings ?? undefined;
+    if (!resolvedSeoSettings && articleId) {
+      const { data: article } = await supabase
+        .from('articles')
+        .select('persona_id, readability_target')
+        .eq('id', articleId)
+        .single();
+      if (article?.persona_id) {
+        const { data: persona } = await supabase
+          .from('personas')
+          .select('seo_internal_links, seo_outbound_links, seo_keyword_density, seo_heading_depth')
+          .eq('id', article.persona_id)
+          .single();
+        if (persona) {
+          resolvedSeoSettings = {
+            seo_internal_linking: persona.seo_internal_links,
+            seo_external_linking: persona.seo_outbound_links,
+            seo_keyword_density: persona.seo_keyword_density,
+            seo_heading_depth: persona.seo_heading_depth,
+            seo_readability_target: article.readability_target ?? undefined,
+          };
+        }
+      } else if (article?.readability_target) {
+        resolvedSeoSettings = {
+          seo_readability_target: article.readability_target,
+        };
+      }
+    }
+
+    // ---------------------------------------------------------------
     // Run the audit
     // ---------------------------------------------------------------
     const auditInput: SeoAuditInput = {
@@ -82,7 +115,7 @@ export async function POST(request: NextRequest) {
       secondaryKeywords: Array.isArray(secondaryKeywords) ? secondaryKeywords : [],
       targetWordCount: typeof targetWordCount === 'number' ? targetWordCount : undefined,
       contentIndex: Array.isArray(contentIndex) ? contentIndex : [],
-      personaSeoSettings: personaSeoSettings ?? undefined,
+      personaSeoSettings: resolvedSeoSettings,
     };
 
     const result = runSeoAudit(auditInput);

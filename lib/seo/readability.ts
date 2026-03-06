@@ -136,17 +136,18 @@ function getReadabilityLabel(score: number): string {
 
 /**
  * Run readability checks and return SeoCheckResults.
+ * @param target Flesch-Kincaid score threshold for pass (default 50).
  */
-export function runReadabilityChecks(bodyText: string): SeoCheckResult[] {
+export function runReadabilityChecks(bodyText: string, target = 50): SeoCheckResult[] {
   const result = calculateReadability(bodyText);
 
   const label = getReadabilityLabel(result.fleschKincaidScore);
 
-  // For web content, 60-70+ is generally recommended
+  // Pass if score meets the persona's target; warn if within 20 points below; fail otherwise
   let status: 'pass' | 'warning' | 'fail';
-  if (result.fleschKincaidScore >= 50) {
+  if (result.fleschKincaidScore >= target) {
     status = 'pass';
-  } else if (result.fleschKincaidScore >= 30) {
+  } else if (result.fleschKincaidScore >= target - 20) {
     status = 'warning';
   } else {
     status = 'fail';

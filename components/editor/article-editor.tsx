@@ -5,7 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bold,
   Italic,
@@ -18,7 +18,14 @@ import {
   Redo,
   Link as LinkIcon,
   Unlink,
+  ImagePlus,
 } from "lucide-react";
+import { ImagePickerModal } from "./image-picker-modal";
+import {
+  ImageMarkerExtension,
+  IMAGE_MARKER_EVENT,
+  type ImageMarkerClickDetail,
+} from "./image-marker-plugin";
 
 type Props = {
   /** Initial HTML content to load */
@@ -29,6 +36,8 @@ type Props = {
   streaming?: boolean;
   /** Whether the editor is editable */
   editable?: boolean;
+  /** Primary keyword for image alt text suggestions */
+  primaryKeyword?: string;
 };
 
 export function ArticleEditor({
@@ -36,8 +45,12 @@ export function ArticleEditor({
   onChange,
   streaming = false,
   editable = true,
+  primaryKeyword,
 }: Props) {
   const lastStreamContent = useRef(content);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [markerPickerOpen, setMarkerPickerOpen] = useState(false);
+  const [activeMarker, setActiveMarker] = useState<ImageMarkerClickDetail | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -52,6 +65,7 @@ export function ArticleEditor({
       Placeholder.configure({
         placeholder: "Your article will appear here...",
       }),
+      ImageMarkerExtension,
     ],
     content,
     immediatelyRender: false,
@@ -80,6 +94,44 @@ export function ArticleEditor({
     if (!editor) return;
     editor.setEditable(editable && !streaming);
   }, [streaming, editable, editor]);
+
+  // Listen for [IMAGE: ...] marker clicks from the ProseMirror plugin
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+
+    function handleMarkerClick(e: Event) {
+      const detail = (e as CustomEvent<ImageMarkerClickDetail>).detail;
+      setActiveMarker(detail);
+      setMarkerPickerOpen(true);
+    }
+
+    dom.addEventListener(IMAGE_MARKER_EVENT, handleMarkerClick);
+    return () => dom.removeEventListener(IMAGE_MARKER_EVENT, handleMarkerClick);
+  }, [editor]);
+
+  const handleMarkerImageSelected = useCallback(
+    (url: string, alt: string) => {
+      if (!editor || !activeMarker) return;
+
+      // Replace the [IMAGE: ...] text with an <img> tag
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: activeMarker.from, to: activeMarker.to })
+        .setImage({ src: url, alt })
+        .run();
+
+      setMarkerPickerOpen(false);
+      setActiveMarker(null);
+
+      // Trigger onChange so parent gets updated HTML
+      if (onChange) {
+        onChange(editor.getHTML());
+      }
+    },
+    [editor, activeMarker, onChange]
+  );
 
   const setLink = useCallback(() => {
     if (!editor) return;
@@ -180,6 +232,13 @@ export function ArticleEditor({
           )}
           <ToolbarSep />
           <ToolbarButton
+            onClick={() => setImagePickerOpen(true)}
+            title="Insert Image"
+          >
+            <ImagePlus size={16} />
+          </ToolbarButton>
+          <ToolbarSep />
+          <ToolbarButton
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
             title="Undo"
@@ -200,6 +259,26 @@ export function ArticleEditor({
       <EditorContent
         editor={editor}
         className="article-editor-content prose prose-neutral max-w-none"
+      />
+
+      {/* Toolbar image picker (insert at cursor) */}
+      <ImagePickerModal
+        open={imagePickerOpen}
+        onClose={() => setImagePickerOpen(false)}
+        onSelect={(url, alt) => {
+          editor.chain().focus().setImage({ src: url, alt }).run();
+          setImagePickerOpen(false);
+        }}
+        primaryKeyword={primaryKeyword}
+      />
+
+      {/* Marker image picker (replace [IMAGE: ...] in-place) */}
+      <ImagePickerModal
+        open={markerPickerOpen}
+        onClose={() => { setMarkerPickerOpen(false); setActiveMarker(null); }}
+        onSelect={handleMarkerImageSelected}
+        initialQuery={activeMarker?.prompt || ""}
+        primaryKeyword={primaryKeyword}
       />
     </div>
   );

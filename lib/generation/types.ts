@@ -30,9 +30,18 @@ export type ArticleBrief = {
   notes?: string;
   primaryKeyword?: string;
   secondaryKeywords?: string[];
+  readabilityTarget?: number;
 };
 
 export type PromptInput = {
+  organization?: {
+    editorial_pov?: 'first_person' | 'second_person' | 'third_person' | null;
+    editorial_person_rules?: string;
+    editorial_commercial_tone?: string;
+    editorial_dos?: string[];
+    editorial_donts?: string[];
+    editorial_custom_rules?: string;
+  };
   website: {
     name: string;
     url: string;
@@ -66,6 +75,7 @@ export type PromptInput = {
     tone_authority?: string;
     tone_brand_loyalty?: number;
     seo_heading_style?: string;
+    seo_heading_depth?: number;
     seo_meta_tone?: string;
     seo_article_length_min?: number;
     seo_article_length_max?: number;

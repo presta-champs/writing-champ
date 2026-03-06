@@ -4,15 +4,17 @@ import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { BrandVoiceForm } from "@/components/sites/brand-voice-form";
 import { ContentIndex } from "@/components/sites/content-index";
+import { McpConnection } from "@/components/sites/mcp-connection";
 
-export default async function SiteDetailPage({ params }: { params: { id: string } }) {
+export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const org = await useOrganization();
     const supabase = await createClient();
 
     const { data: site } = await supabase
         .from("websites")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", id)
         .eq("organization_id", org?.id)
         .single();
 
@@ -41,11 +43,14 @@ export default async function SiteDetailPage({ params }: { params: { id: string 
             </div>
 
             <div className="mb-8">
-                {/* We will add MCP connection config UI here in Phase 2 */}
-                <div className="bg-gray-50 border rounded-lg p-5 mb-8">
-                    <p className="text-sm text-gray-600 font-medium">CMS Connection (Phase 2 Component)</p>
-                    <p className="text-xs text-gray-500 mt-1">This panel will house the MCP server connection credentials and sync status.</p>
-                </div>
+                <McpConnection
+                    websiteId={site.id}
+                    platformType={site.platform_type}
+                    currentUrl={site.mcp_server_url}
+                    currentStatus={site.mcp_status || "unconfigured"}
+                    lastSynced={site.mcp_last_synced}
+                    isAdmin={org?.role === "admin"}
+                />
             </div>
 
             {/* Brand Voice Editor */}

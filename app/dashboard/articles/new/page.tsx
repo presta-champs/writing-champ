@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Loader2, Download, Check, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Download, Check, Save, DollarSign } from "lucide-react";
 import { ArticleEditor } from "@/components/editor/article-editor";
 import { KeywordResearchStep } from "@/components/pipeline/keyword-research-step";
 import { SeoCheckPanel } from "@/components/pipeline/seo-check-panel";
+import { ImageMarkers } from "@/components/editor/image-markers";
+import { FeaturedImage } from "@/components/editor/featured-image";
+import { estimateGenerationCost, formatCost } from "@/lib/generation/pricing";
 
 type Website = { id: string; name: string; url: string; platform_type: string };
 type Persona = { id: string; name: string; bio: string | null; badges?: string[]; usage_count?: number };
@@ -34,6 +37,7 @@ export default function NewArticlePage() {
     topic: "",
     format: "how-to",
     targetLength: 1500,
+    readabilityTarget: 50,
     model: "",
     notes: "",
     primaryKeyword: "",
@@ -49,6 +53,13 @@ export default function NewArticlePage() {
   const [articleId, setArticleId] = useState<string | null>(null);
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
+  const [actualCost, setActualCost] = useState<{ costUsd: number; model: string; inputTokens: number; outputTokens: number } | null>(null);
+  const [featuredImageUrl, setFeaturedImageUrl] = useState<string | null>(null);
+
+  const costEstimate = useMemo(() => {
+    if (!brief.model || !brief.targetLength) return null;
+    return estimateGenerationCost(brief.model, brief.targetLength);
+  }, [brief.model, brief.targetLength]);
 
   const supabase = createClient();
 
@@ -113,6 +124,7 @@ export default function NewArticlePage() {
     setGeneratedHtml("");
     setEditedHtml("");
     setSaveMessage("");
+    setActualCost(null);
 
     try {
       const response = await fetch("/api/generate", {
@@ -130,6 +142,7 @@ export default function NewArticlePage() {
           secondaryKeywords: sk
             ? sk.split(",").map((s) => s.trim()).filter(Boolean)
             : undefined,
+          readabilityTarget: brief.readabilityTarget,
         }),
       });
 
@@ -152,27 +165,55 @@ export default function NewArticlePage() {
         setGeneratedHtml(fullText);
       }
 
+      // Extract cost metadata from trailing marker
+      const costMatch = fullText.match(/\n<!--GENERATION_COST:(.*?)-->/);
+      if (costMatch) {
+        try {
+          setActualCost(JSON.parse(costMatch[1]));
+        } catch { /* ignore parse errors */ }
+        fullText = fullText.replace(costMatch[0], "");
+      }
+
+      // Extract meta block from streamed text (model outputs <!--META ... META-->)
+      const metaBlockMatch = fullText.match(/<!--META[\s\S]*?TITLE:\s*(.*?)[\r\n]+\s*DESCRIPTION:\s*(.*?)[\r\n]+\s*META-->/);
+      if (metaBlockMatch) {
+        setMetaTitle(metaBlockMatch[1].trim());
+        setMetaDescription(metaBlockMatch[2].trim());
+        fullText = fullText.replace(metaBlockMatch[0], "").trim();
+      }
+
       setEditedHtml(fullText);
       setStep("done");
 
-      // Fetch the article ID and meta fields from the most recent draft
-      const { data: recentArticle } = await supabase
-        .from("articles")
-        .select("id, meta_title, meta_description, body")
-        .eq("status", "draft")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      // Poll for the saved article (onComplete runs async after stream closes)
+      const pollForArticle = async (retries = 5): Promise<void> => {
+        for (let i = 0; i < retries; i++) {
+          const { data: recentArticle } = await supabase
+            .from("articles")
+            .select("id, meta_title, meta_description, body")
+            .eq("status", "draft")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
 
-      if (recentArticle) {
-        setArticleId(recentArticle.id);
-        setMetaTitle(recentArticle.meta_title || "");
-        setMetaDescription(recentArticle.meta_description || "");
-        // Use the DB version (may have been revised for word count)
-        if (recentArticle.body && recentArticle.body !== fullText) {
-          setEditedHtml(recentArticle.body);
+          if (recentArticle) {
+            setArticleId(recentArticle.id);
+            // Use DB meta if client-side extraction missed it
+            if (!metaBlockMatch) {
+              setMetaTitle(recentArticle.meta_title || "");
+              setMetaDescription(recentArticle.meta_description || "");
+            }
+            // Use the DB version (may have been revised for word count)
+            if (recentArticle.body && recentArticle.body !== fullText) {
+              setEditedHtml(recentArticle.body);
+            }
+            return;
+          }
+          // Wait before retrying — server-side save is still running
+          await new Promise((r) => setTimeout(r, 1000));
         }
-      }
+      };
+      pollForArticle();
     } catch (error) {
       setGenerationError(
         error instanceof Error ? error.message : "An unexpected error occurred."
@@ -195,6 +236,7 @@ export default function NewArticlePage() {
           word_count: wordCount,
           meta_title: metaTitle || null,
           meta_description: metaDescription || null,
+          featured_image_url: featuredImageUrl || null,
         })
         .eq("id", articleId);
       if (error) throw error;
@@ -482,6 +524,66 @@ export default function NewArticlePage() {
               </div>
             </div>
 
+            {/* Readability Target */}
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+                Readability Target (Flesch-Kincaid)
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={20}
+                  max={80}
+                  value={brief.readabilityTarget}
+                  onChange={(e) =>
+                    setBrief({ ...brief, readabilityTarget: parseInt(e.target.value) })
+                  }
+                  className="flex-1"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <span
+                  className="text-sm font-bold tabular-nums min-w-[2.5rem] text-center px-2 py-0.5 rounded-lg"
+                  style={{ background: "var(--surface-warm)", color: "var(--accent)" }}
+                >
+                  {brief.readabilityTarget}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                <span>Technical</span>
+                <span>
+                  {brief.readabilityTarget >= 70
+                    ? "Easy (7th grade)"
+                    : brief.readabilityTarget >= 60
+                    ? "Standard (8th-9th grade)"
+                    : brief.readabilityTarget >= 50
+                    ? "Fairly difficult (10th-12th grade)"
+                    : brief.readabilityTarget >= 30
+                    ? "Difficult (college)"
+                    : "Very difficult (graduate)"}
+                </span>
+                <span>Easy</span>
+              </div>
+            </div>
+
+            {/* Cost Estimate */}
+            {costEstimate && brief.model && (
+              <div
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm"
+                style={{ background: "var(--surface-warm)", border: "1px solid var(--border)" }}
+              >
+                <DollarSign size={15} style={{ color: "var(--text-muted)" }} />
+                <span style={{ color: "var(--text-secondary)" }}>
+                  Estimated cost:{" "}
+                  <strong style={{ color: "var(--foreground)" }}>
+                    {formatCost(costEstimate.low)} &ndash; {formatCost(costEstimate.high)}
+                  </strong>
+                </span>
+                <span style={{ color: "var(--text-muted)" }} className="text-xs">
+                  (~{costEstimate.inputTokens.toLocaleString()} input + ~{costEstimate.outputTokens.toLocaleString()} output tokens)
+                </span>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
                 Primary Keyword (optional)
@@ -590,14 +692,49 @@ export default function NewArticlePage() {
 
           {step === "done" && !generationError && (
             <div
-              className="flex items-center gap-3 rounded-lg p-4"
-              style={{ background: "var(--success-light)", color: "var(--success)", border: "1px solid var(--border)" }}
+              className="rounded-lg p-4"
+              style={{ background: "var(--success-light)", border: "1px solid var(--border)" }}
             >
-              <Check size={20} />
-              <span className="text-sm font-medium">
-                Article generated and saved as draft. You can now edit it below.
-              </span>
+              <div className="flex items-center gap-3" style={{ color: "var(--success)" }}>
+                <Check size={20} />
+                <span className="text-sm font-medium">
+                  Article generated and saved as draft. You can now edit it below.
+                </span>
+              </div>
+              {actualCost && (
+                <div
+                  className="flex items-center gap-4 mt-3 pt-3 text-xs"
+                  style={{ borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}
+                >
+                  <span className="flex items-center gap-1">
+                    <DollarSign size={13} />
+                    <strong style={{ color: "var(--foreground)" }}>{formatCost(actualCost.costUsd)}</strong> spent
+                  </span>
+                  <span>{actualCost.model}</span>
+                  <span>{actualCost.inputTokens.toLocaleString()} input tokens</span>
+                  <span>{actualCost.outputTokens.toLocaleString()} output tokens</span>
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Image markers — replace [IMAGE: ...] placeholders */}
+          {step === "done" && editedHtml && (
+            <ImageMarkers
+              html={editedHtml}
+              onChange={(newHtml) => setEditedHtml(newHtml)}
+              onFeaturedImageSet={(url) => setFeaturedImageUrl(url)}
+              primaryKeyword={brief.primaryKeyword}
+            />
+          )}
+
+          {/* Featured image */}
+          {step === "done" && (
+            <FeaturedImage
+              currentUrl={featuredImageUrl || undefined}
+              onUrlChange={(url) => setFeaturedImageUrl(url)}
+              primaryKeyword={brief.primaryKeyword}
+            />
           )}
 
           {/* Meta fields — shown after generation */}
@@ -733,6 +870,7 @@ export default function NewArticlePage() {
                 streaming={isGenerating}
                 editable={!isGenerating}
                 onChange={(html) => setEditedHtml(html)}
+                primaryKeyword={brief.primaryKeyword}
               />
             </div>
           )}
@@ -779,6 +917,8 @@ export default function NewArticlePage() {
                   setSaveMessage("");
                   setMetaTitle("");
                   setMetaDescription("");
+                  setActualCost(null);
+                  setFeaturedImageUrl(null);
                 }}
                 className="text-sm font-medium hover:underline"
                 style={{ color: "var(--accent)" }}
