@@ -5,7 +5,9 @@ import type {
   McpPublishResult,
   McpContentIndexResult,
   McpPost,
+  FieldMapping,
 } from "./types";
+import { FIELD_MAPPING_DEFAULTS } from "./types";
 
 /**
  * Unified MCP client that routes to the correct CMS adapter
@@ -483,6 +485,37 @@ export class McpClient {
     };
   }
 
+  // ── Field Mapping ──────────────────────────────────────────────
+
+  /**
+   * Transforms a McpPublishPayload into a mapped object using the
+   * configured field mapping. Only includes fields that have values.
+   */
+  private applyFieldMapping(payload: McpPublishPayload): Record<string, unknown> {
+    const mapping = this.config.fieldMapping;
+    if (!mapping) return { ...payload };
+
+    const m: Required<FieldMapping> = { ...FIELD_MAPPING_DEFAULTS, ...mapping };
+    const result: Record<string, unknown> = {};
+
+    result[m.title] = payload.title;
+    result[m.content] = payload.content;
+    result[m.status] = payload.status;
+
+    if (payload.slug) result[m.slug] = payload.slug;
+    if (payload.excerpt) result[m.excerpt] = payload.excerpt;
+    if (payload.meta_title) result[m.meta_title] = payload.meta_title;
+    if (payload.meta_description) result[m.meta_description] = payload.meta_description;
+    if (payload.date) result[m.date] = payload.date;
+
+    // Pass through fields that are not part of the mapping
+    if (payload.featured_image_url) result.featured_image_url = payload.featured_image_url;
+    if (payload.categories) result.categories = payload.categories;
+    if (payload.tags) result.tags = payload.tags;
+
+    return result;
+  }
+
   // ── Custom/Webhook ───────────────────────────────────────────────
 
   private async customTest(): Promise<McpTestResult> {
@@ -565,6 +598,8 @@ export class McpClient {
     const url = new URL(this.config.serverUrl);
     url.pathname = url.pathname.replace(/\/+$/, "") + "/posts";
 
+    const mappedPayload = this.applyFieldMapping(payload);
+
     const res = await fetch(url.toString(), {
       method: "POST",
       headers: {
@@ -572,7 +607,7 @@ export class McpClient {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(mappedPayload),
       signal: AbortSignal.timeout(30000),
     });
 
@@ -596,6 +631,8 @@ export class McpClient {
     const url = new URL(this.config.serverUrl);
     url.pathname = url.pathname.replace(/\/+$/, "") + `/posts/${postId}`;
 
+    const mappedPayload = this.applyFieldMapping(payload);
+
     const res = await fetch(url.toString(), {
       method: "PUT",
       headers: {
@@ -603,7 +640,7 @@ export class McpClient {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(mappedPayload),
       signal: AbortSignal.timeout(30000),
     });
 

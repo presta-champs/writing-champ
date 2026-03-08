@@ -28,6 +28,7 @@ type SeoAuditResult = {
   score: number;
   checks: SeoCheckResult[];
   summary: { pass: number; warning: number; fail: number };
+  externalScore?: { score: number; suggestions: string[] };
 };
 
 type Props = {
@@ -536,6 +537,50 @@ export function SeoCheckPanel({
               );
             })}
           </div>
+
+          {/* Surfer SEO external score (optional) */}
+          {audit.externalScore && (
+            <div
+              className="mx-4 mb-4 rounded-lg overflow-hidden"
+              style={{ border: "1px solid var(--border)" }}
+            >
+              <div
+                className="px-4 py-3 flex items-center gap-3"
+                style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}
+              >
+                <TrendingUp size={16} style={{ color: "var(--accent)" }} />
+                <span
+                  className="text-sm font-semibold"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  Surfer SEO Score
+                </span>
+                <span
+                  className="ml-auto inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold"
+                  style={{
+                    background: getScoreBg(audit.externalScore.score),
+                    color: getScoreColor(audit.externalScore.score),
+                  }}
+                >
+                  {audit.externalScore.score}/100
+                </span>
+              </div>
+              {audit.externalScore.suggestions.length > 0 && (
+                <ul className="px-4 py-3 space-y-1.5">
+                  {audit.externalScore.suggestions.map((suggestion, i) => (
+                    <li
+                      key={i}
+                      className="text-xs leading-relaxed flex gap-2"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      <span style={{ color: "var(--accent)" }}>--</span>
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

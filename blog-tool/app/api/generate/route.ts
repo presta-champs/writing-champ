@@ -83,10 +83,10 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Persona not found' }, { status: 404 });
     }
 
-    // Fetch org editorial guidelines
+    // Fetch org editorial guidelines + default model
     const { data: orgRow } = await supabase
       .from('organizations')
-      .select('editorial_pov, editorial_person_rules, editorial_commercial_tone, editorial_dos, editorial_donts, editorial_custom_rules')
+      .select('editorial_pov, editorial_person_rules, editorial_commercial_tone, editorial_dos, editorial_donts, editorial_custom_rules, default_model')
       .eq('id', orgId)
       .single();
 
@@ -168,6 +168,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Resolve model: explicit request → org default → hardcoded fallback
+    const resolvedModel = requestedModel || orgRow?.default_model || undefined;
+
     // Resolve all available API keys: org-stored (encrypted) → env var fallback
     const { data: orgData } = await supabase
       .from('organizations')
@@ -200,14 +203,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Resolve the API key that will actually be used (for revision pass)
-    const actualProvider = getProvider(requestedModel || 'claude-sonnet-4-20250514');
+    const actualProvider = getProvider(resolvedModel || 'claude-sonnet-4-20250514');
     const actualApiKey = providerKeys[actualProvider] || Object.values(providerKeys)[0] || '';
 
     // Start generation — router handles fallback if selected model's provider has no key
     const generator = routeToModel({
       systemPrompt,
       userPrompt,
-      model: requestedModel,
+      model: resolvedModel,
       providerKeys,
       targetWordCount: targetLength,
     });

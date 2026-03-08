@@ -78,6 +78,7 @@ export function ContentIndex({ websiteId }: { websiteId: string }) {
   }
 
   async function handleDelete(entryId: string) {
+    if (!confirm("Delete this content index entry? This cannot be undone.")) return;
     setDeletingId(entryId);
     try {
       const res = await fetch(`/api/content-index/${entryId}`, {

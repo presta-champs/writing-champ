@@ -41,46 +41,107 @@ const FALLBACK_MODELS: Record<Provider, string> = {
   gemini: 'gemini-2.0-flash',
 };
 
+/** Check if an error is transient (worth retrying same provider) */
+function isTransientError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes('rate limit') ||
+    msg.includes('429') ||
+    msg.includes('timeout') ||
+    msg.includes('econnreset') ||
+    msg.includes('socket hang up') ||
+    msg.includes('503') ||
+    msg.includes('overloaded')
+  );
+}
+
+/** Call the correct provider's generator */
+function callProvider(
+  provider: Provider,
+  genParams: GenerationRequest & { model: string; apiKey: string; targetWordCount?: number }
+): AsyncGenerator<string, GenerationResult> {
+  switch (provider) {
+    case 'openai':
+      return generateWithOpenAI(genParams);
+    case 'gemini':
+      return generateWithGemini(genParams);
+    case 'anthropic':
+    default:
+      return generateWithClaude(genParams);
+  }
+}
+
+/**
+ * Build ordered list of (provider, model, apiKey) to try.
+ * Starts with the requested provider, then falls back to others that have keys.
+ */
+function buildProviderQueue(
+  requestedModel: string,
+  keys: Partial<Record<Provider, string>>
+): { provider: Provider; model: string; apiKey: string }[] {
+  const requestedProvider = getProvider(requestedModel);
+  const queue: { provider: Provider; model: string; apiKey: string }[] = [];
+
+  // Requested provider first
+  if (keys[requestedProvider]) {
+    queue.push({ provider: requestedProvider, model: requestedModel, apiKey: keys[requestedProvider]! });
+  }
+
+  // Then fallbacks in order
+  for (const fallback of FALLBACK_ORDER) {
+    if (fallback !== requestedProvider && keys[fallback]) {
+      queue.push({ provider: fallback, model: FALLBACK_MODELS[fallback], apiKey: keys[fallback]! });
+    }
+  }
+
+  return queue;
+}
+
+const MAX_RETRIES_SAME_PROVIDER = 1;
+
 /**
  * Routes generation to the correct provider.
- * If the selected model's provider has no API key, falls back to the next available provider.
+ * - If the selected model's provider has no API key, falls back to the next available provider.
+ * - On transient errors (rate limit, timeout), retries once on the same provider.
+ * - On persistent errors, fails over to the next available provider.
  */
 export async function* routeToModel(
   params: RouterParams
 ): AsyncGenerator<string, GenerationResult> {
   const keys = params.providerKeys || {};
   const requestedModel = params.model || 'claude-sonnet-4-20250514';
-  const requestedProvider = getProvider(requestedModel);
 
-  // Find a provider that has a key, preferring the requested one
-  let model = requestedModel;
-  let apiKey = keys[requestedProvider];
+  const queue = buildProviderQueue(requestedModel, keys);
 
-  if (!apiKey) {
-    // Fallback: find first provider with a key
-    for (const fallback of FALLBACK_ORDER) {
-      if (fallback !== requestedProvider && keys[fallback]) {
-        apiKey = keys[fallback];
-        model = FALLBACK_MODELS[fallback];
+  if (queue.length === 0) {
+    throw new Error('No API key configured for any AI provider. Add one in Settings.');
+  }
+
+  const errors: string[] = [];
+
+  for (const { provider, model, apiKey } of queue) {
+    const genParams = { ...params, model, apiKey, targetWordCount: params.targetWordCount };
+
+    for (let attempt = 0; attempt <= MAX_RETRIES_SAME_PROVIDER; attempt++) {
+      try {
+        return yield* callProvider(provider, genParams);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${provider}/${model}: ${msg}`);
+
+        if (isTransientError(err) && attempt < MAX_RETRIES_SAME_PROVIDER) {
+          // Wait briefly before retry
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
+        // Persistent error or retry exhausted — try next provider
         break;
       }
     }
   }
 
-  if (!apiKey) {
-    throw new Error('No API key configured for any AI provider. Add one in Settings.');
-  }
-
-  const provider = getProvider(model);
-  const genParams = { ...params, model, apiKey, targetWordCount: params.targetWordCount };
-
-  switch (provider) {
-    case 'openai':
-      return yield* generateWithOpenAI(genParams);
-    case 'gemini':
-      return yield* generateWithGemini(genParams);
-    case 'anthropic':
-    default:
-      return yield* generateWithClaude(genParams);
-  }
+  throw new Error(
+    `All providers failed:\n${errors.map((e) => `  - ${e}`).join('\n')}`
+  );
 }

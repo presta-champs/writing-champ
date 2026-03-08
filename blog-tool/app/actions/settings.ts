@@ -13,6 +13,7 @@ const SUPPORTED_KEYS = [
   "google_ai_api_key",
   "unsplash_access_key",
   "pexels_api_key",
+  "surfer_seo_api_key",
 ] as const;
 
 type KeyName = typeof SUPPORTED_KEYS[number];
@@ -23,6 +24,7 @@ const KEY_LABELS: Record<KeyName, string> = {
   google_ai_api_key: "Google AI (Gemini)",
   unsplash_access_key: "Unsplash",
   pexels_api_key: "Pexels",
+  surfer_seo_api_key: "Surfer SEO",
 };
 
 /**
@@ -139,6 +141,7 @@ export async function getDecryptedApiKey(keyName: KeyName): Promise<string | nul
     google_ai_api_key: "GOOGLE_AI_API_KEY",
     unsplash_access_key: "UNSPLASH_ACCESS_KEY",
     pexels_api_key: "PEXELS_API_KEY",
+    surfer_seo_api_key: "SURFER_SEO_API_KEY",
   };
 
   return process.env[envMap[keyName]] || null;
@@ -228,6 +231,87 @@ export async function updateEditorialGuidelines(formData: FormData): Promise<{ s
       editorial_donts,
       editorial_custom_rules: editorial_custom_rules || null,
     })
+    .eq("id", org.id);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/dashboard/settings");
+  return { success: true };
+}
+
+/**
+ * Get the current organization's default AI model.
+ */
+export async function getDefaultModel(): Promise<string | null> {
+  const org = await useOrganization();
+  if (!org) throw new Error("Not authorized");
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("organizations")
+    .select("default_model")
+    .eq("id", org.id)
+    .single();
+
+  return data?.default_model || null;
+}
+
+/**
+ * Update the organization's default AI model.
+ * Pass null to clear the default (users will pick per-generation).
+ */
+export async function updateDefaultModel(
+  model: string | null
+): Promise<{ success: boolean; error?: string }> {
+  const user = await useUser();
+  const org = await useOrganization();
+  if (!user || !org) return { success: false, error: "Not authorized" };
+  if (org.role !== "admin") return { success: false, error: "Only admins can change the default model" };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("organizations")
+    .update({ default_model: model || null })
+    .eq("id", org.id);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath("/dashboard/settings");
+  return { success: true };
+}
+
+/**
+ * Get whether external SEO grading (Surfer SEO) is enabled for the org.
+ */
+export async function getExternalSeoEnabled(): Promise<boolean> {
+  const org = await useOrganization();
+  if (!org) throw new Error("Not authorized");
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("organizations")
+    .select("external_seo_enabled")
+    .eq("id", org.id)
+    .single();
+
+  return data?.external_seo_enabled ?? false;
+}
+
+/**
+ * Toggle external SEO grading (Surfer SEO) for the org.
+ */
+export async function updateExternalSeoEnabled(
+  enabled: boolean,
+): Promise<{ success: boolean; error?: string }> {
+  const user = await useUser();
+  const org = await useOrganization();
+  if (!user || !org) return { success: false, error: "Not authorized" };
+  if (org.role !== "admin") return { success: false, error: "Only admins can change SEO settings" };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("organizations")
+    .update({ external_seo_enabled: enabled })
     .eq("id", org.id);
 
   if (error) return { success: false, error: error.message };

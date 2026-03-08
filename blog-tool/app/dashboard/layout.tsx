@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LayoutDashboard, Globe, Users, FileText, Settings, LogOut, PenTool } from "lucide-react";
 import { signout } from "@/app/actions/auth";
+import NotificationBell from "@/components/notifications/notification-bell";
 
 export default function DashboardLayout({
     children,
@@ -51,9 +52,17 @@ export default function DashboardLayout({
                 {/* Mobile Header */}
                 <header className="p-4 md:hidden flex justify-between items-center" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
                     <h1 className="text-xl font-bold" style={{ color: 'var(--foreground)' }}>WritingChamps</h1>
-                    <form action={signout}>
-                        <button type="submit" className="text-sm font-medium" style={{ color: 'var(--danger)' }}>Sign Out</button>
-                    </form>
+                    <div className="flex items-center gap-2">
+                        <NotificationBell />
+                        <form action={signout}>
+                            <button type="submit" className="text-sm font-medium" style={{ color: 'var(--danger)' }}>Sign Out</button>
+                        </form>
+                    </div>
+                </header>
+
+                {/* Desktop Top Bar */}
+                <header className="hidden md:flex items-center justify-end px-8 py-3" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+                    <NotificationBell />
                 </header>
 
                 <div className="flex-1 overflow-auto p-8">

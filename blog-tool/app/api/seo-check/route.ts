@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runSeoAudit } from '@/lib/seo/checker';
+import { checkWithSurfer } from '@/lib/seo/surfer';
+import { decrypt } from '@/lib/crypto';
 import type { SeoAuditInput } from '@/lib/seo/types';
 
 export async function POST(request: NextRequest) {
@@ -122,7 +124,49 @@ export async function POST(request: NextRequest) {
 
     const result = runSeoAudit(auditInput);
 
-    return NextResponse.json(result, { status: 200 });
+    // ---------------------------------------------------------------
+    // External SEO grading (Surfer SEO) — optional
+    // ---------------------------------------------------------------
+    let externalScore: { score: number; suggestions: string[] } | undefined;
+
+    const { data: orgRow } = await supabase
+      .from('organizations')
+      .select('external_seo_enabled, api_integration_keys')
+      .eq('id', membership.organization_id)
+      .single();
+
+    if (orgRow?.external_seo_enabled) {
+      const stored: Record<string, string> = orgRow.api_integration_keys || {};
+      const encKey = stored['surfer_seo_api_key'];
+      let apiKey: string | null = null;
+
+      if (encKey) {
+        try {
+          const plaintext = decrypt(encKey);
+          if (plaintext.length > 0) apiKey = plaintext;
+        } catch {
+          // Decryption failed — fall through to env
+        }
+      }
+
+      // Fallback to env var
+      if (!apiKey) {
+        apiKey = process.env.SURFER_SEO_API_KEY || null;
+      }
+
+      if (apiKey) {
+        const surferResult = await checkWithSurfer(apiKey, html, primaryKeyword);
+        if (!surferResult.error) {
+          externalScore = {
+            score: surferResult.score,
+            suggestions: surferResult.suggestions,
+          };
+        }
+        // If there's an error, we silently skip — Surfer is best-effort
+      }
+    }
+
+    return NextResponse.json({ ...result, externalScore }, { status: 200 });
   } catch (err) {
     console.error('[SEO Check API] Error:', err);
     return NextResponse.json(

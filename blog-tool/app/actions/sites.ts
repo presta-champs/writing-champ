@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { useOrganization } from "@/lib/hooks/use-organization";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export async function createWebsite(formData: FormData) {
     const org = await useOrganization();
@@ -24,6 +25,7 @@ export async function createWebsite(formData: FormData) {
     }
 
     revalidatePath("/dashboard/sites");
+    redirect("/dashboard/sites");
 }
 
 export async function updateBrandVoice(id: string, formData: FormData) {

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { useUser } from "@/lib/hooks/use-user";
 import { useOrganization } from "@/lib/hooks/use-organization";
 import { revalidatePath } from "next/cache";
+import { createNotification } from "@/app/actions/notifications";
 
 export type ApprovalEvent = {
   id: string;
@@ -34,7 +35,7 @@ export async function submitForApproval(
   // Verify article belongs to org and is in draft status
   const { data: article } = await supabase
     .from("articles")
-    .select("id, status, organization_id")
+    .select("id, status, organization_id, title, created_by")
     .eq("id", articleId)
     .eq("organization_id", org.id)
     .single();
@@ -77,6 +78,29 @@ export async function submitForApproval(
     comment: null,
   });
 
+  // Notify all admins in the organization
+  const { data: admins } = await supabase
+    .from("organization_members")
+    .select("user_id")
+    .eq("organization_id", org.id)
+    .eq("role", "admin");
+
+  if (admins && admins.length > 0) {
+    const articleTitle = article.title || "Untitled";
+    await Promise.all(
+      admins.map((admin) =>
+        createNotification({
+          orgId: org.id,
+          userId: admin.user_id,
+          type: "approval_submitted",
+          title: "Article submitted for review",
+          message: `"${articleTitle}" has been submitted for approval.`,
+          articleId,
+        })
+      )
+    );
+  }
+
   revalidatePath(`/dashboard/articles/${articleId}`);
   return { success: true };
 }
@@ -103,7 +127,7 @@ export async function approveArticle(
   // Verify article belongs to org and is pending approval
   const { data: article } = await supabase
     .from("articles")
-    .select("id, status, organization_id")
+    .select("id, status, organization_id, title, created_by")
     .eq("id", articleId)
     .eq("organization_id", org.id)
     .single();
@@ -136,6 +160,19 @@ export async function approveArticle(
     comment: comment || null,
   });
 
+  // Notify the article creator
+  if (article.created_by) {
+    const articleTitle = article.title || "Untitled";
+    await createNotification({
+      orgId: org.id,
+      userId: article.created_by,
+      type: "approval_approved",
+      title: "Article approved",
+      message: `"${articleTitle}" has been approved.${comment ? ` Comment: ${comment}` : ""}`,
+      articleId,
+    });
+  }
+
   revalidatePath(`/dashboard/articles/${articleId}`);
   return { success: true };
 }
@@ -166,7 +203,7 @@ export async function rejectArticle(
   // Verify article belongs to org and is pending approval
   const { data: article } = await supabase
     .from("articles")
-    .select("id, status, organization_id")
+    .select("id, status, organization_id, title, created_by")
     .eq("id", articleId)
     .eq("organization_id", org.id)
     .single();
@@ -197,6 +234,19 @@ export async function rejectArticle(
     action: "rejected",
     comment: comment.trim(),
   });
+
+  // Notify the article creator about rejection
+  if (article.created_by) {
+    const articleTitle = article.title || "Untitled";
+    await createNotification({
+      orgId: org.id,
+      userId: article.created_by,
+      type: "approval_rejected",
+      title: "Article needs revision",
+      message: `"${articleTitle}" was returned for revision. Reason: ${comment.trim()}`,
+      articleId,
+    });
+  }
 
   revalidatePath(`/dashboard/articles/${articleId}`);
   return { success: true };

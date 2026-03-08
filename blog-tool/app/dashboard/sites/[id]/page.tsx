@@ -5,6 +5,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { BrandVoiceForm } from "@/components/sites/brand-voice-form";
 import { ContentIndex } from "@/components/sites/content-index";
 import { McpConnection } from "@/components/sites/mcp-connection";
+import { FieldMappingEditor } from "@/components/sites/field-mapping-editor";
 
 export default async function SiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -52,6 +53,16 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
                     isAdmin={org?.role === "admin"}
                 />
             </div>
+
+            {/* Field Mapping for Custom CMS */}
+            {site.platform_type === "custom" && (
+                <div className="mb-8">
+                    <FieldMappingEditor
+                        websiteId={site.id}
+                        isAdmin={org?.role === "admin"}
+                    />
+                </div>
+            )}
 
             {/* Brand Voice Editor */}
             <BrandVoiceForm site={site} />

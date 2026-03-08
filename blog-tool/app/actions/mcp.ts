@@ -5,7 +5,7 @@ import { useUser } from "@/lib/hooks/use-user";
 import { useOrganization } from "@/lib/hooks/use-organization";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { McpClient } from "@/lib/mcp/client";
-import type { McpPlatform } from "@/lib/mcp/types";
+import type { McpPlatform, FieldMapping } from "@/lib/mcp/types";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -99,6 +99,78 @@ export async function saveMcpConnection(
 
   revalidatePath(`/dashboard/sites/${websiteId}`);
   return { success: true };
+}
+
+/**
+ * Save custom field mapping for a website's webhook integration.
+ * Stored in the website's connection_config JSON column.
+ */
+export async function saveFieldMapping(
+  websiteId: string,
+  mapping: FieldMapping
+): Promise<{ success: boolean; error?: string }> {
+  const user = await useUser();
+  const org = await useOrganization();
+  if (!user || !org) return { success: false, error: "Not authorized" };
+  if (org.role !== "admin")
+    return { success: false, error: "Only admins can configure field mappings" };
+
+  const supabase = await createClient();
+
+  // Verify site belongs to org and is a custom platform
+  const { data: site } = await supabase
+    .from("websites")
+    .select("id, platform_type, connection_config")
+    .eq("id", websiteId)
+    .eq("organization_id", org.id)
+    .single();
+
+  if (!site) return { success: false, error: "Site not found" };
+  if (site.platform_type !== "custom")
+    return { success: false, error: "Field mapping is only available for custom CMS integrations" };
+
+  // Merge field mapping into existing connection_config
+  const existingConfig = (site.connection_config as Record<string, unknown>) || {};
+  const updatedConfig = {
+    ...existingConfig,
+    fieldMapping: mapping,
+  };
+
+  const { error } = await supabase
+    .from("websites")
+    .update({ connection_config: updatedConfig })
+    .eq("id", websiteId)
+    .eq("organization_id", org.id);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidatePath(`/dashboard/sites/${websiteId}`);
+  return { success: true };
+}
+
+/**
+ * Retrieve the current field mapping for a website.
+ */
+export async function getFieldMapping(
+  websiteId: string
+): Promise<{ success: boolean; mapping?: FieldMapping; error?: string }> {
+  const org = await useOrganization();
+  if (!org) return { success: false, error: "Not authorized" };
+
+  const supabase = await createClient();
+  const { data: site } = await supabase
+    .from("websites")
+    .select("connection_config")
+    .eq("id", websiteId)
+    .eq("organization_id", org.id)
+    .single();
+
+  if (!site) return { success: false, error: "Site not found" };
+
+  const config = (site.connection_config as Record<string, unknown>) || {};
+  const mapping = (config.fieldMapping as FieldMapping) || {};
+
+  return { success: true, mapping };
 }
 
 /**
@@ -259,7 +331,7 @@ export async function publishArticleToCms(
   // Fetch article with website info
   const { data: article } = await supabase
     .from("articles")
-    .select("*, websites!articles_website_id_fkey(id, platform_type, mcp_server_url, mcp_auth_token, url, organization_id)")
+    .select("*, websites!articles_website_id_fkey(id, platform_type, mcp_server_url, mcp_auth_token, url, organization_id, connection_config)")
     .eq("id", articleId)
     .eq("organization_id", org.id)
     .single();
@@ -273,6 +345,7 @@ export async function publishArticleToCms(
     mcp_auth_token: string | null;
     url: string;
     organization_id: string;
+    connection_config: Record<string, unknown> | null;
   };
 
   if (!website?.mcp_server_url || !website?.mcp_auth_token) {
@@ -286,10 +359,17 @@ export async function publishArticleToCms(
     return { success: false, error: "Failed to decrypt CMS credentials" };
   }
 
+  // Extract field mapping from connection_config for custom platforms
+  const fieldMapping =
+    website.platform_type === "custom" && website.connection_config?.fieldMapping
+      ? (website.connection_config.fieldMapping as FieldMapping)
+      : undefined;
+
   const client = new McpClient({
     serverUrl: website.mcp_server_url,
     authToken,
     platform: website.platform_type as McpPlatform,
+    fieldMapping,
   });
 
   const isScheduled = !!options?.schedule;

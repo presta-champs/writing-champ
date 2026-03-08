@@ -45,6 +45,15 @@ export function ImagePickerModal({ open, onClose, onSelect, initialQuery = "", p
       .catch(() => {});
   }, [tab]);
 
+  // Sync initialQuery into state whenever the modal opens with a new query
+  useEffect(() => {
+    if (open && initialQuery) {
+      setQuery(initialQuery);
+      setGenPrompt(initialQuery);
+      setAltInput(initialQuery);
+    }
+  }, [open, initialQuery]);
+
   const [urlInput, setUrlInput] = useState("");
   const [altInput, setAltInput] = useState(primaryKeyword || initialQuery);
 
