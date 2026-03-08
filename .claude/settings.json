@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(taskkill //PID 5052 //F)",
+      "Bash(taskkill //PID 30224 //F)",
+      "Bash(docker info)",
+      "Bash(netstat -aon)",
+      "Bash(tasklist //FI \"PID eq 33332\")"
+    ]
+  }
+}
