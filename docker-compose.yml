@@ -1,0 +1,52 @@
+version: "3.9"
+
+networks:
+  suite-network:
+    driver: bridge
+
+volumes:
+  blog-db-data:
+  email-data:
+
+services:
+
+  # ── Blog Tool ────────────────────────────────────────────────
+
+  blog-app:
+    build:
+      context: ./blog-tool
+      dockerfile: Dockerfile
+    container_name: blog-app
+    ports:
+      - "3001:3000"
+    env_file:
+      - ./blog-tool/.env.local
+    environment:
+      - NODE_ENV=production
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+    depends_on:
+      blog-db:
+        condition: service_healthy
+    networks:
+      - suite-network
+    restart: unless-stopped
+
+  blog-db:
+    image: postgres:16-alpine
+    container_name: blog-db
+    environment:
+      - POSTGRES_DB=blogtool
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - blog-db-data:/var/lib/postgresql/data
+      - ./blog-tool/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - suite-network
+    restart: unless-stopped
