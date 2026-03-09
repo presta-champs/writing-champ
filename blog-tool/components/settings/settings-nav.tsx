@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, Users } from "lucide-react";
+import { Settings, Users, Plug } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard/settings", label: "General", icon: Settings },
   { href: "/dashboard/settings/team", label: "Team", icon: Users },
+  { href: "/dashboard/settings/mcp", label: "MCP", icon: Plug },
 ];
 
 export function SettingsNav() {
