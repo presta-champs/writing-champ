@@ -32,10 +32,10 @@ export type KeywordPickerResult = {
 // Sync model router (mirrors voice-analysis.ts pattern)
 // ---------------------------------------------------------------------------
 
-const FALLBACK_ORDER: Provider[] = ['anthropic', 'openai'];
+const FALLBACK_ORDER: Provider[] = ['openai', 'anthropic'];
 const FALLBACK_MODELS: Record<Provider, string> = {
+  openai: 'gpt-4o-mini',
   anthropic: 'claude-sonnet-4-20250514',
-  openai: 'gpt-4o',
   gemini: 'gemini-pro',
 };
 
@@ -47,7 +47,7 @@ async function generateSync(params: {
   maxTokens?: number;
 }): Promise<GenerationResult> {
   const keys = params.providerKeys;
-  const requestedModel = params.model || 'claude-sonnet-4-20250514';
+  const requestedModel = params.model || 'gpt-4o-mini';
   const requestedProvider = getProvider(requestedModel);
 
   let model = requestedModel;

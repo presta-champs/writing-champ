@@ -290,11 +290,19 @@ function buildUserPrompt(input: PromptInput): string {
     seoParts.push(`- Prefer common words over jargon. Explain technical terms when first used.`);
     seoParts.push(`- Use active voice. Minimize passive constructions.`);
 
-    // Link rules
-    if (persona.seo_external_linking != null && persona.seo_external_linking > 0) {
-      seoParts.push(`\nInclude at least ${persona.seo_external_linking} outbound links to authoritative external sources (real, relevant URLs).`);
-    } else {
-      seoParts.push(`\nInclude at least 1 outbound link to an authoritative external source.`);
+    // Link rules — outbound (STRICT: scored by SEO audit)
+    {
+      const minOutbound = (persona.seo_external_linking != null && persona.seo_external_linking > 0)
+        ? persona.seo_external_linking : 1;
+      seoParts.push(`\n### Outbound Links (STRICT — the SEO audit checks this)`);
+      seoParts.push(`Include at least ${minOutbound} outbound link(s) to real, authoritative external websites.`);
+      seoParts.push(`Rules for outbound links:`);
+      seoParts.push(`  - Use REAL URLs that exist (e.g., https://www.example.com/specific-page). Do NOT invent or hallucinate URLs.`);
+      seoParts.push(`  - Link to well-known authoritative sources relevant to the topic: Wikipedia, industry publications, official documentation, research papers, major news outlets, government sites, etc.`);
+      seoParts.push(`  - Use descriptive anchor text — not "click here" or bare URLs.`);
+      seoParts.push(`  - Place links naturally within body paragraphs where they add value for the reader.`);
+      seoParts.push(`  - Example: <a href="https://en.wikipedia.org/wiki/Search_engine_optimization">search engine optimization</a>`);
+      seoParts.push(`  - If you cannot find a real URL for a claim, link to the most authoritative general page on that topic.`);
     }
 
     // Persona-level SEO settings
@@ -310,21 +318,45 @@ function buildUserPrompt(input: PromptInput): string {
     if (persona.seo_include_toc) {
       seoParts.push(`Include a table of contents after the introduction.`);
     }
-    parts.push(`## SEO\n${seoParts.join('\n')}`);
+    // SEO compliance checklist — summarize all audited requirements
+    seoParts.push(`\n### SEO Compliance Checklist (your article WILL be scored on all of these)`);
+    seoParts.push(`Before finishing, verify that your article satisfies every item:`);
+    if (brief.primaryKeyword) {
+      seoParts.push(`  ✓ Primary keyword in: title (H1), first paragraph, at least one H2, at least one image alt text`);
+      seoParts.push(`  ✓ Keyword density within target range`);
+    }
+    seoParts.push(`  ✓ Exactly one H1 tag, proper heading hierarchy (no skipped levels)`);
+    seoParts.push(`  ✓ At least ${(persona.seo_external_linking != null && persona.seo_external_linking > 0) ? persona.seo_external_linking : 1} outbound link(s) to real external URLs`);
+    seoParts.push(`  ✓ At least ${persona.seo_internal_linking ?? 3} internal link(s) to other pages on the site`);
+    seoParts.push(`  ✓ All images have descriptive alt text`);
+    seoParts.push(`  ✓ Short paragraphs, active voice, readability score ≥ ${input.brief.readabilityTarget ?? 50}`);
+    seoParts.push(`  ✓ Word count within target range`);
+
+    parts.push(`## SEO Requirements (STRICT — every rule below is scored by an automated audit)\n${seoParts.join('\n')}`);
   }
 
-  // Layer 6 — Internal linking reference
-  if (input.contentIndex && input.contentIndex.length > 0) {
+  // Layer 6 — Internal linking reference (STRICT: scored by SEO audit)
+  {
     const linkingLevel = input.persona.seo_internal_linking ?? 3;
-    const linkEntries = input.contentIndex
-      .slice(0, 20) // cap at 20 entries to stay within context
-      .map((entry) => `- [${entry.post_title}](${entry.post_url})${entry.post_excerpt ? `: ${entry.post_excerpt}` : ''}`)
-      .join('\n');
     const linkParts: string[] = [];
-    linkParts.push(`Link to relevant published articles from this site when they add value for the reader.`);
-    linkParts.push(`Target approximately ${linkingLevel} internal links.`);
-    linkParts.push(`Use natural anchor text — do not force keyword-stuffed links.`);
-    linkParts.push(`\nAvailable pages to link to:\n${linkEntries}`);
+    linkParts.push(`### Internal Links (STRICT — the SEO audit checks this)`);
+    linkParts.push(`You MUST include at least ${linkingLevel} internal link(s) pointing to other pages on the same website.`);
+    linkParts.push(`Use natural, descriptive anchor text — do not force keyword-stuffed links.`);
+    linkParts.push(`Place internal links in body paragraphs where they genuinely help the reader explore related content.`);
+
+    if (input.contentIndex && input.contentIndex.length > 0) {
+      const linkEntries = input.contentIndex
+        .slice(0, 20) // cap at 20 entries to stay within context
+        .map((entry) => `- [${entry.post_title}](${entry.post_url})${entry.post_excerpt ? `: ${entry.post_excerpt}` : ''}`)
+        .join('\n');
+      linkParts.push(`\nAvailable pages to link to (use these exact URLs):\n${linkEntries}`);
+    } else {
+      linkParts.push(`\nNo content index is available. Use placeholder internal links with this exact format:`);
+      linkParts.push(`  - <a href="#internal-link" data-placeholder="true">descriptive anchor text about the related topic</a>`);
+      linkParts.push(`These placeholders will be replaced with real URLs after publishing. Do NOT invent or guess real URL paths.`);
+      linkParts.push(`Still include at least ${linkingLevel} placeholder internal link(s) so the article structure is ready.`);
+    }
+
     parts.push(`\n## Internal Linking\n${linkParts.join('\n')}`);
   }
 

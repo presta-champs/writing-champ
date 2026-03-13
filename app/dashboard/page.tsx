@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus, PenTool, Globe, FileText } from "lucide-react";
+import { formatCostDisplay } from '@/lib/usage-display';
 
 export default async function DashboardHome() {
     const user = await useUser();
@@ -18,7 +19,7 @@ export default async function DashboardHome() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [sitesResult, personasResult, articlesThisMonthResult, recentArticlesResult] = await Promise.all([
+    const [sitesResult, personasResult, articlesThisMonthResult, recentArticlesResult, spendingResult] = await Promise.all([
         supabase
             .from('websites')
             .select('*', { count: 'exact', head: true })
@@ -38,12 +39,36 @@ export default async function DashboardHome() {
             .eq('organization_id', org.id)
             .order('created_at', { ascending: false })
             .limit(5),
+        supabase
+            .from('usage_events')
+            .select('estimated_cost_usd')
+            .eq('organization_id', org.id)
+            .gte('created_at', monthStart),
     ]);
+
+    // Budget columns may not exist if migration hasn't run yet
+    let budgetData: { monthly_budget: number | null; budget_warning_threshold: number } | null = null;
+    try {
+        const { data, error } = await supabase
+            .from('organizations')
+            .select('monthly_budget, budget_warning_threshold')
+            .eq('id', org.id)
+            .single();
+        if (!error) budgetData = data;
+    } catch {
+        // Budget columns don't exist yet
+    }
 
     const siteCount = sitesResult.count ?? 0;
     const personaCount = personasResult.count ?? 0;
     const articlesThisMonth = articlesThisMonthResult.count ?? 0;
     const recentArticles = recentArticlesResult.data ?? [];
+    const spendingEvents = spendingResult.data ?? [];
+    const totalSpend = spendingEvents.reduce((sum: number, e: any) => sum + (e.estimated_cost_usd || 0), 0);
+    const budget = budgetData?.monthly_budget ?? null;
+    const budgetThreshold = budgetData?.budget_warning_threshold ?? 0.8;
+    const budgetPercent = budget ? (totalSpend / budget) * 100 : null;
+    const isOverThreshold = budgetPercent !== null && budgetPercent >= budgetThreshold * 100;
 
     const isEmpty = siteCount === 0 && personaCount === 0;
 
@@ -58,7 +83,7 @@ export default async function DashboardHome() {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Link href="/dashboard/sites" className="p-6 rounded-xl transition hover:shadow-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                     <h3 className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Total Sites</h3>
                     <p className="text-3xl font-bold" style={{ color: 'var(--foreground)' }}>{siteCount}</p>
@@ -71,6 +96,37 @@ export default async function DashboardHome() {
                     <h3 className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Articles This Month</h3>
                     <p className="text-3xl font-bold" style={{ color: 'var(--foreground)' }}>{articlesThisMonth} <span className="text-lg font-normal" style={{ color: 'var(--text-muted)' }}>/ {org.article_limit || 10}</span></p>
                 </div>
+                <Link href="/dashboard/usage" className="p-6 rounded-xl transition hover:shadow-sm" style={{
+                    background: isOverThreshold ? 'var(--warning-bg, #fef3c7)' : 'var(--surface)',
+                    border: `1px solid ${isOverThreshold ? 'var(--warning-border, #f59e0b)' : 'var(--border)'}`,
+                }}>
+                    <h3 className="text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+                        Spending This Month
+                        {isOverThreshold && <span className="ml-1">&#9888;</span>}
+                    </h3>
+                    <p className="text-3xl font-bold" style={{ color: 'var(--foreground)' }}>
+                        {formatCostDisplay(totalSpend)}
+                    </p>
+                    {budget !== null && (
+                        <>
+                            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                                / ${budget.toFixed(2)}
+                            </p>
+                            <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                                <div
+                                    className="h-full rounded-full transition-all"
+                                    style={{
+                                        width: `${Math.min(budgetPercent!, 100)}%`,
+                                        background: budgetPercent! >= 100 ? '#ef4444' : isOverThreshold ? '#f59e0b' : '#10b981',
+                                    }}
+                                />
+                            </div>
+                        </>
+                    )}
+                    {budget === null && (
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>No budget set</p>
+                    )}
+                </Link>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
