@@ -8,7 +8,8 @@ type UsageEventType =
   | 'seo_check'
   | 'mcp_publish'
   | 'news_fetch'
-  | 'voice_analysis';
+  | 'voice_analysis'
+  | 'idea_generation';
 
 /**
  * Log a usage event. Never throws — logging failures
