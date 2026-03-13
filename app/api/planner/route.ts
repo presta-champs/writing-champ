@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   if (includeUnscheduled) {
     // Get both: scheduled in this month OR unscheduled ideas
     campaignsQuery = campaignsQuery.or(
-      `scheduled_at.gte.${monthStart},scheduled_at.lte.${monthEnd},and(status.eq.idea,scheduled_at.is.null)`
+      `and(scheduled_at.gte.${monthStart},scheduled_at.lte.${monthEnd}),and(status.eq.idea,scheduled_at.is.null)`
     );
   } else {
     campaignsQuery = campaignsQuery
