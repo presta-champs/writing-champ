@@ -1,0 +1,118 @@
+<h2>Usage Page Layout</h2>
+<p class="subtitle">How should the full /dashboard/usage page be organized?</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 16px; font-family: monospace; font-size: 11px; line-height: 1.6; background: var(--surface-alt, #1a1a2e); color: #ccc; border-radius: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="font-size: 9px; color: #888;">This Month</div>
+            <div style="font-size: 16px; font-weight: bold; color: #6ee7b7;">$12.48</div>
+          </div>
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="font-size: 9px; color: #888;">Today</div>
+            <div style="font-size: 16px; font-weight: bold; color: #93c5fd;">$0.82</div>
+          </div>
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="font-size: 9px; color: #888;">Generations</div>
+            <div style="font-size: 16px; font-weight: bold; color: #c4b5fd;">47</div>
+          </div>
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="font-size: 9px; color: #888;">Budget</div>
+            <div style="font-size: 16px; font-weight: bold; color: #fbbf24;">62%</div>
+          </div>
+        </div>
+        <div style="background: #2a2a4a; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+          <div style="font-size: 9px; color: #888; margin-bottom: 6px;">Daily Spending — March 2026</div>
+          <div style="display: flex; align-items: flex-end; gap: 3px; height: 60px;">
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 30%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 45%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 20%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 65%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 40%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 80%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 55%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 35%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 70%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 50%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 90%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 60%;"></div>
+            <div style="flex:1; background: #8b5cf6; border-radius: 2px 2px 0 0; height: 40%;"></div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px;">
+            <div style="font-size: 9px; color: #888; margin-bottom: 4px;">By Model</div>
+            <div style="font-size: 10px;">Claude Sonnet: $8.20</div>
+            <div style="font-size: 10px;">GPT-4o: $3.10</div>
+            <div style="font-size: 10px;">Gemini Flash: $1.18</div>
+          </div>
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px;">
+            <div style="font-size: 9px; color: #888; margin-bottom: 4px;">By Type</div>
+            <div style="font-size: 10px;">Generation: $10.40</div>
+            <div style="font-size: 10px;">Keywords: $1.20</div>
+            <div style="font-size: 10px;">Images: $0.88</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: Single Scroll (Recommended)</h3>
+      <p>Summary cards → daily bar chart → side-by-side breakdowns → budget settings. Everything on one scrollable page. Simple, no tabs.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 16px; font-family: monospace; font-size: 11px; line-height: 1.6; background: var(--surface-alt, #1a1a2e); color: #ccc; border-radius: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="font-size: 9px; color: #888;">This Month</div>
+            <div style="font-size: 16px; font-weight: bold; color: #6ee7b7;">$12.48</div>
+          </div>
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="font-size: 9px; color: #888;">Today</div>
+            <div style="font-size: 16px; font-weight: bold; color: #93c5fd;">$0.82</div>
+          </div>
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="font-size: 9px; color: #888;">Generations</div>
+            <div style="font-size: 16px; font-weight: bold; color: #c4b5fd;">47</div>
+          </div>
+          <div style="background: #2a2a4a; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="font-size: 9px; color: #888;">Budget</div>
+            <div style="font-size: 16px; font-weight: bold; color: #fbbf24;">62%</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+          <div style="padding: 6px 12px; background: #6366f1; border-radius: 6px; font-size: 10px; color: white; font-weight: bold;">Overview</div>
+          <div style="padding: 6px 12px; background: #2a2a4a; border-radius: 6px; font-size: 10px; color: #888;">By Model</div>
+          <div style="padding: 6px 12px; background: #2a2a4a; border-radius: 6px; font-size: 10px; color: #888;">By Type</div>
+          <div style="padding: 6px 12px; background: #2a2a4a; border-radius: 6px; font-size: 10px; color: #888;">Budget</div>
+        </div>
+        <div style="background: #2a2a4a; border-radius: 6px; padding: 12px;">
+          <div style="font-size: 9px; color: #888; margin-bottom: 6px;">Daily Spending — March 2026</div>
+          <div style="display: flex; align-items: flex-end; gap: 3px; height: 80px;">
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 30%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 45%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 20%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 65%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 40%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 80%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 55%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 35%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 70%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 50%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 90%;"></div>
+            <div style="flex:1; background: #6366f1; border-radius: 2px 2px 0 0; height: 60%;"></div>
+            <div style="flex:1; background: #8b5cf6; border-radius: 2px 2px 0 0; height: 40%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: Tabbed Sections</h3>
+      <p>Summary cards always visible at top. Tabs below: Overview (chart) | By Model | By Type | Budget. Each tab focuses on one breakdown. Cleaner but requires clicking.</p>
+    </div>
+  </div>
+</div>

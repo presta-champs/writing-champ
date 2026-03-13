@@ -1,0 +1,108 @@
+<h2>Content Planner — Page Layout</h2>
+<p class="subtitle">How should the planner page be organized?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Calendar-First (Recommended)</h3>
+      <p>Full monthly calendar grid dominates the page. Idea generation panel slides out from the right. Click any day to add an idea, drag ideas between days. Small toolbar above calendar for "Generate Ideas" button + filters.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-body" style="padding:12px">
+          <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+            <div style="background:#6366f1;color:white;padding:4px 12px;border-radius:6px;font-size:12px">← Feb</div>
+            <div style="font-weight:600;font-size:14px;flex:1;text-align:center">March 2026</div>
+            <div style="background:#6366f1;color:white;padding:4px 12px;border-radius:6px;font-size:12px">Apr →</div>
+            <div style="margin-left:auto;background:var(--accent, #6366f1);color:white;padding:6px 14px;border-radius:8px;font-size:12px">✨ Generate Ideas</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:10px">
+            <div style="text-align:center;font-weight:600;padding:4px;color:var(--text-muted,#888)">Mon</div>
+            <div style="text-align:center;font-weight:600;padding:4px;color:var(--text-muted,#888)">Tue</div>
+            <div style="text-align:center;font-weight:600;padding:4px;color:var(--text-muted,#888)">Wed</div>
+            <div style="text-align:center;font-weight:600;padding:4px;color:var(--text-muted,#888)">Thu</div>
+            <div style="text-align:center;font-weight:600;padding:4px;color:var(--text-muted,#888)">Fri</div>
+            <div style="text-align:center;font-weight:600;padding:4px;color:var(--text-muted,#888)">Sat</div>
+            <div style="text-align:center;font-weight:600;padding:4px;color:var(--text-muted,#888)">Sun</div>
+            <!-- Row 1 -->
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">1</span></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">2</span></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">3</span><div style="background:#6366f1;color:white;padding:2px 4px;border-radius:3px;margin-top:2px;font-size:9px">SEO Guide ✏️</div></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">4</span></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">5</span><div style="background:#10b981;color:white;padding:2px 4px;border-radius:3px;margin-top:2px;font-size:9px">AI Trends ✓</div></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">6</span></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">7</span></div>
+            <!-- Row 2 -->
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">8</span></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">9</span></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">10</span><div style="background:#f59e0b;color:white;padding:2px 4px;border-radius:3px;margin-top:2px;font-size:9px">Email Tips 📝</div></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">11</span></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">12</span></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">13</span></div>
+            <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:4px;padding:3px;min-height:50px"><span style="color:var(--text-muted,#888)">14</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Visual date planning at a glance</li><li>Drag-and-drop between days</li><li>Simplest mental model</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Unscheduled ideas need a separate "parking lot"</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Split: Ideas Panel + Calendar</h3>
+      <p>Left panel shows generated/manual ideas as cards (unscheduled). Right side is the calendar. Drag ideas from the left panel onto calendar days. Ideas panel has "Generate" button and filters.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-body" style="padding:12px">
+          <div style="display:flex;gap:10px">
+            <div style="width:30%;border-right:1px solid var(--border,#e5e5e5);padding-right:10px">
+              <div style="font-weight:600;font-size:11px;margin-bottom:6px">Ideas (4 unscheduled)</div>
+              <div style="background:var(--accent, #6366f1);color:white;padding:4px 8px;border-radius:6px;font-size:10px;text-align:center;margin-bottom:8px">✨ Generate</div>
+              <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:6px;padding:6px;margin-bottom:4px;font-size:10px;cursor:grab">
+                <div style="font-weight:600">10 SEO Tips for 2026</div>
+                <div style="color:var(--text-muted,#888);font-size:9px">how-to · myblog.com</div>
+              </div>
+              <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:6px;padding:6px;margin-bottom:4px;font-size:10px;cursor:grab">
+                <div style="font-weight:600">AI Writing Tools Review</div>
+                <div style="color:var(--text-muted,#888);font-size:9px">roundup · myblog.com</div>
+              </div>
+              <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:6px;padding:6px;margin-bottom:4px;font-size:10px;cursor:grab">
+                <div style="font-weight:600">Content Marketing ROI</div>
+                <div style="color:var(--text-muted,#888);font-size:9px">explainer · clientsite.io</div>
+              </div>
+            </div>
+            <div style="flex:1">
+              <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-size:11px;color:var(--text-muted,#888)">←</span>
+                <span style="font-weight:600;font-size:12px">March 2026</span>
+                <span style="font-size:11px;color:var(--text-muted,#888)">→</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:9px">
+                <div style="text-align:center;font-weight:600;color:var(--text-muted,#888)">M</div>
+                <div style="text-align:center;font-weight:600;color:var(--text-muted,#888)">T</div>
+                <div style="text-align:center;font-weight:600;color:var(--text-muted,#888)">W</div>
+                <div style="text-align:center;font-weight:600;color:var(--text-muted,#888)">T</div>
+                <div style="text-align:center;font-weight:600;color:var(--text-muted,#888)">F</div>
+                <div style="text-align:center;font-weight:600;color:var(--text-muted,#888)">S</div>
+                <div style="text-align:center;font-weight:600;color:var(--text-muted,#888)">S</div>
+                <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:3px;padding:2px;min-height:35px"><span style="color:var(--text-muted,#888)">1</span></div>
+                <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:3px;padding:2px;min-height:35px"><span style="color:var(--text-muted,#888)">2</span></div>
+                <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:3px;padding:2px;min-height:35px"><span style="color:var(--text-muted,#888)">3</span><div style="background:#6366f1;color:white;padding:1px 3px;border-radius:2px;font-size:8px;margin-top:1px">SEO Guide</div></div>
+                <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:3px;padding:2px;min-height:35px"><span style="color:var(--text-muted,#888)">4</span></div>
+                <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:3px;padding:2px;min-height:35px"><span style="color:var(--text-muted,#888)">5</span></div>
+                <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:3px;padding:2px;min-height:35px"><span style="color:var(--text-muted,#888)">6</span></div>
+                <div style="background:var(--surface,#f8f8f8);border:1px solid var(--border,#e5e5e5);border-radius:3px;padding:2px;min-height:35px"><span style="color:var(--text-muted,#888)">7</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Ideas always visible alongside calendar</li><li>Natural drag from ideas → calendar</li><li>No need for a separate "parking lot"</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Calendar cells smaller (less room for text)</li><li>More complex layout</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

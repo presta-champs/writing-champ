@@ -1,0 +1,61 @@
+<h2>Spending Dashboard — Approach</h2>
+<p class="subtitle">How should the dashboard be structured within the app?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Dedicated /dashboard/usage page (Recommended)</h3>
+      <p>New sidebar nav item "Usage" between Library and Settings. Single page with sections: spending summary cards at top, daily chart in the middle, breakdowns (by model, by event type, by user) below, and budget settings at the bottom.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Clean separation — doesn't clutter existing pages</li>
+          <li>Room for charts, tables, and drill-downs</li>
+          <li>Follows existing pattern (each nav item = one page)</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>One more nav item</li>
+          <li>User must navigate to see spending</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Embedded in Settings page</h3>
+      <p>Add a "Usage &amp; Billing" section to the existing Settings page. Spending summary, chart, and budget controls all live alongside org settings, API keys, and editorial guidelines.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>No new nav item</li>
+          <li>Budget settings near other org config</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Settings page is already dense</li>
+          <li>Charts + tables make it very long</li>
+          <li>Harder to add detail views later</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Dashboard home widget + dedicated page</h3>
+      <p>Add a small "This month's spend" card to the dashboard home (alongside Sites, Personas, Articles), and clicking it opens a full /dashboard/usage page with all the detail.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Spending visible at a glance on home</li>
+          <li>Full detail available one click away</li>
+          <li>Budget warning visible without navigating</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Two places to build (widget + full page)</li>
+          <li>Slightly more work</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</div>
