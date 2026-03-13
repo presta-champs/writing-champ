@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Loader2, Download, Check, Save, DollarSign } from "lucide-react";
@@ -27,7 +28,22 @@ const FORMATS = [
   { value: "case-study", label: "Case Study" },
 ];
 
-export default function NewArticlePage() {
+export default function NewArticlePageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
+      </div>
+    }>
+      <NewArticlePage />
+    </Suspense>
+  );
+}
+
+function NewArticlePage() {
+  const searchParams = useSearchParams();
+  const campaignId = searchParams.get("campaign");
+
   const [step, setStep] = useState<Step>("site");
   const [websites, setWebsites] = useState<Website[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -55,6 +71,7 @@ export default function NewArticlePage() {
   const [metaDescription, setMetaDescription] = useState("");
   const [actualCost, setActualCost] = useState<{ costUsd: number; model: string; inputTokens: number; outputTokens: number } | null>(null);
   const [featuredImageUrl, setFeaturedImageUrl] = useState<string | null>(null);
+  const campaignPersonaIdRef = useRef<string | null>(null);
 
   const costEstimate = useMemo(() => {
     if (!brief.model || !brief.targetLength) return null;
@@ -83,6 +100,62 @@ export default function NewArticlePage() {
     loadModels();
   }, []);
 
+  // Pre-fill from campaign query param
+  useEffect(() => {
+    if (!campaignId || websites.length === 0) return;
+
+    async function loadCampaign() {
+      try {
+        const res = await fetch(`/api/planner/${campaignId}`);
+        if (!res.ok) return;
+        const campaign = await res.json();
+
+        // Pre-fill brief fields
+        setBrief((prev) => ({
+          ...prev,
+          topic: campaign.title || campaign.core_idea || prev.topic,
+          format: campaign.format || prev.format,
+          targetLength: campaign.target_length || prev.targetLength,
+          primaryKeyword: campaign.primary_keyword || prev.primaryKeyword,
+          secondaryKeywords: Array.isArray(campaign.secondary_keywords)
+            ? campaign.secondary_keywords.join(", ")
+            : campaign.secondary_keywords || prev.secondaryKeywords,
+          notes: campaign.notes || campaign.core_idea || prev.notes,
+        }));
+
+        // Store persona_id to auto-select after personas load
+        if (campaign.persona_id) {
+          campaignPersonaIdRef.current = campaign.persona_id;
+        }
+
+        // Pre-select website if campaign has one
+        if (campaign.website_id) {
+          const matchingWebsite = websites.find((w) => w.id === campaign.website_id);
+          if (matchingWebsite) {
+            setSelectedWebsite(matchingWebsite);
+          }
+        }
+
+        // Update campaign status to 'writing'
+        await fetch(`/api/planner/${campaignId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "writing" }),
+        });
+      } catch {
+        // ignore errors — campaign pre-fill is best-effort
+      }
+    }
+
+    loadCampaign();
+  }, [campaignId, websites]);
+
+  // Advance to brief step once website and persona are both set from campaign
+  useEffect(() => {
+    if (!campaignId || !selectedWebsite || !selectedPersona) return;
+    setStep("brief");
+  }, [campaignId, selectedWebsite, selectedPersona]);
+
   // Load personas when website is selected
   useEffect(() => {
     if (!selectedWebsite) return;
@@ -108,10 +181,31 @@ export default function NewArticlePage() {
           .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0));
 
         setPersonas(sorted);
+
+        // Auto-select persona from campaign if available
+        if (campaignPersonaIdRef.current) {
+          const match = sorted.find((p) => p.id === campaignPersonaIdRef.current);
+          if (match) {
+            setSelectedPersona(match);
+          }
+        }
       }
     }
     loadPersonas();
   }, [selectedWebsite]);
+
+  // Link article to campaign once articleId is available
+  useEffect(() => {
+    if (!campaignId || !articleId) return;
+
+    fetch(`/api/planner/${campaignId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ article_id: articleId }),
+    }).catch(() => {
+      // ignore errors — linking is best-effort
+    });
+  }, [campaignId, articleId]);
 
   async function handleGenerate(overrides?: { primaryKeyword?: string; secondaryKeywords?: string }) {
     if (!selectedWebsite || !selectedPersona) return;
