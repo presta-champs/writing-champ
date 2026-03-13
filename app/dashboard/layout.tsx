@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Globe, Users, FileText, Settings, LogOut, PenTool } from "lucide-react";
+import { LayoutDashboard, Globe, Users, FileText, Settings, LogOut, PenTool, DollarSign, CalendarDays } from "lucide-react";
 import { signout } from "@/app/actions/auth";
 
 export default function DashboardLayout({
@@ -29,8 +29,14 @@ export default function DashboardLayout({
                     <Link href="/dashboard/articles/new" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg hover:opacity-80 transition" style={{ color: 'var(--accent)' }}>
                         <PenTool size={18} /> New Article
                     </Link>
+                    <Link href="/dashboard/planner" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg hover:opacity-80 transition" style={{ color: 'var(--text-secondary)' }}>
+                        <CalendarDays size={18} /> Planner
+                    </Link>
                     <Link href="/dashboard/library" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg hover:opacity-80 transition" style={{ color: 'var(--text-secondary)' }}>
                         <FileText size={18} /> Content Library
+                    </Link>
+                    <Link href="/dashboard/usage" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg hover:opacity-80 transition" style={{ color: 'var(--text-secondary)' }}>
+                        <DollarSign size={18} /> Usage
                     </Link>
                     <Link href="/dashboard/settings" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg hover:opacity-80 transition" style={{ color: 'var(--text-secondary)' }}>
                         <Settings size={18} /> Settings
