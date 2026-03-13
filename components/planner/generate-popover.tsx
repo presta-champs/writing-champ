@@ -70,7 +70,7 @@ export function GeneratePopover({ onGenerated, websites }: Props) {
 
       {open && (
         <div
-          className="absolute left-0 top-full mt-2 w-72 p-4 rounded-xl shadow-lg z-50 space-y-3"
+          className="absolute left-0 top-full mt-2 w-[260px] p-4 rounded-xl shadow-lg z-50 space-y-3"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
           <div>
