@@ -47,7 +47,7 @@ export function PlannerDashboard() {
   const [showNewIdea, setShowNewIdea] = useState(false);
   const [newIdeaDate, setNewIdeaDate] = useState<string | null>(null);
   const [websites, setWebsites] = useState<Array<{ id: string; name: string }>>([]);
-  const [personas, setPersonas] = useState<Array<{ id: string; name: string; website_ids: string[] }>>([]);
+  const [personas, setPersonas] = useState<Array<{ id: string; name: string }>>([]);
 
   const fetchData = useCallback(async (m: string) => {
     setLoading(true);

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   // Verify website belongs to org
   const { data: website } = await supabase
     .from('websites')
-    .select('id, name, url, description')
+    .select('id, name, url, site_description')
     .eq('id', websiteId)
     .eq('organization_id', orgId)
     .single();
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     const result = await generateIdeas({
       websiteName: website.name,
       websiteUrl: website.url,
-      websiteDescription: website.description,
+      websiteDescription: website.site_description,
       existingTitles: allExistingTitles,
       seedTopic: seedTopic || undefined,
       count,

@@ -29,8 +29,9 @@ export async function GET() {
       .order('name'),
     supabase
       .from('personas')
-      .select('id, name, persona_website_assignments(website_id)')
+      .select('id, name')
       .eq('organization_id', orgId)
+      .eq('archived', false)
       .order('name'),
   ]);
 
@@ -39,7 +40,6 @@ export async function GET() {
     personas: (personas || []).map((p: any) => ({
       id: p.id,
       name: p.name,
-      website_ids: (p.persona_website_assignments || []).map((a: any) => a.website_id),
     })),
   });
 }

@@ -11,7 +11,7 @@ type Props = {
   onDelete: (id: string) => void;
   onClose: () => void;
   websites: Array<{ id: string; name: string }>;
-  personas: Array<{ id: string; name: string; website_ids: string[] }>;
+  personas: Array<{ id: string; name: string }>;
 };
 
 export function IdeaDetailModal({ campaign, defaultDate, onSave, onDelete, onClose, websites, personas }: Props) {
@@ -30,11 +30,6 @@ export function IdeaDetailModal({ campaign, defaultDate, onSave, onDelete, onClo
   const [notes, setNotes] = useState(campaign?.notes || '');
   const [scheduledAt, setScheduledAt] = useState(campaign?.scheduled_at || defaultDate || '');
   const [saving, setSaving] = useState(false);
-
-  // Filter personas by selected website
-  const filteredPersonas = websiteId
-    ? personas.filter(p => p.website_ids.includes(websiteId))
-    : personas;
 
   const canWrite = websiteId && personaId;
 
@@ -172,7 +167,7 @@ export function IdeaDetailModal({ campaign, defaultDate, onSave, onDelete, onClo
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--foreground)' }}
           >
             <option value="">Select persona...</option>
-            {filteredPersonas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {personas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
 
