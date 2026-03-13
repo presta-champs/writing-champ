@@ -1,0 +1,3 @@
+ALTER TABLE organizations
+  ADD COLUMN IF NOT EXISTS monthly_budget FLOAT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS budget_warning_threshold FLOAT DEFAULT 0.8;
